@@ -22,10 +22,10 @@ LESSON_TIMES = [
 ]
 
 
-class ScheduleTab(ft.Control):
-    def _get_control_name(self):
-        return "scheduletab"
-    
+class ScheduleTab():
+    def __init__(self):
+        self.view = ft.Column([ft.Text("Расписание")])   
+
     def build(self):
         self.selected_course = 1
         self.selected_group_id = None

@@ -1,8 +1,5 @@
 # Перенесите логику в ViewModel
-class NotesViewModel:
-    def _get_control_name(self):
-        return "notesview"
-    
+class NotesViewModel():
     def __init__(self, storage):
         self.storage = storage
 

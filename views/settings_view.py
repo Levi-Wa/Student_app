@@ -1,8 +1,8 @@
 import flet as ft
 
 class SettingsTab(ft.Control):
-    def _get_control_name(self):
-        return "settingstab"
+    def __init__(self):
+            self.view = ft.Column([ft.Text("Настройки (в разработке)")])
     
     def build(self):
         return ft.Text("Настройки (в разработке)")
