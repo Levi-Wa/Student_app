@@ -22,7 +22,15 @@ def main(page: ft.Page):
     page.window_width = 400
     page.window_height = 800
 
-    app = App(page).build()
-    page.add(app)
+    page.add(
+        ft.Tabs(
+            selected_index=0,
+            tabs=[
+                ft.Tab(text="Расписание", content=ScheduleTab()),
+                ft.Tab(text="Заметки", content=ft.Text("Вкладка заметок")),
+                ft.Tab(text="Настройки", content=ft.Text("Вкладка настроек")),
+            ]
+        )
+    )
 
 ft.app(target=main)

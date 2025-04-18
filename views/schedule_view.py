@@ -1,94 +1,66 @@
 import flet as ft
 import requests
 
-class ScheduleTab(ft.Control):
-    def __init__(self, page):
+# Группы с ID по курсам
+CUSTOM_GROUPS = {
+    1: {"ИД-101": 26616, "ИД-102": 26617},
+    2: {"ИД-201": 26618, "ИД-202": 26619},
+    3: {"ИД-301": 26620, "ИД-302": 26621},
+    4: {"ИД-401": 26622, "ИД-402": 26623},
+}
+
+class ScheduleTab(ft.Column):
+    def __init__(self):
         super().__init__()
-        self.page = page  # Сохраняем ссылку на страницу
-        self.selected_course = None
-        self.selected_group_id = None
-        self.schedule_output = ft.Column()
-
-    def build(self):
-        # Радиокнопки для выбора курса
-        self.course_radio = ft.RadioGroup(
-            content=ft.Column([
-                ft.Text("Выберите курс:", size=20, weight="bold"),
-                *[ft.Radio(value=course, label=course) for course in ["1 курс", "2 курс", "3 курс", "4 курс"]],
-            ]),
-            on_change=self.on_course_change
+        self.course_selector = ft.Dropdown(
+            label="Выберите курс",
+            options=[ft.dropdown.Option(str(i)) for i in range(1, 5)],
+            on_change=self.on_course_change,
         )
 
-        # Радиокнопки для выбора группы
-        self.group_radio = ft.RadioGroup(
-            content=ft.Column([]),
-            on_change=self.on_group_change
-        )
+        self.group_radio = ft.RadioGroup(content=ft.Column([]), on_change=self.on_group_change)
+        self.schedule_display = ft.Column()
 
-        # Контейнер для вывода расписания
-        return ft.Column([
-            self.course_radio,
+        self.controls = [
+            ft.Text("Расписание", style="headlineMedium"),
+            self.course_selector,
             self.group_radio,
             ft.Divider(),
-            self.schedule_output
-        ])
+            self.schedule_display,
+        ]
 
     def on_course_change(self, e):
-        self.selected_course = e.control.value
-        self.selected_group_id = None
-        self.group_radio.value = None
-        self.schedule_output.controls.clear()
+        selected_course = int(self.course_selector.value)
+        self.load_groups_for_course(selected_course)
 
-        # Пример групп по курсу
-        groups = {
-            "1 курс": [("Ид-101", 26616), ("Ид-102", 26617)],
-            "2 курс": [("Ид-201", 26618), ("Ид-202", 26619)],
-            "3 курс": [("Ид-301", 26620), ("Ид-302", 26621)],
-            "4 курс": [("Ид-401", 26622), ("Ид-402", 26623)],
-        }
-
-        selected_groups = groups.get(self.selected_course, [])
-        self.group_radio.content = ft.Column([
-            ft.Text("Выберите группу:", size=18, weight="bold"),
-            *[ft.Radio(value=str(group_id), label=group_name) for group_name, group_id in selected_groups]
-        ])
+    def load_groups_for_course(self, course):
+        groups = CUSTOM_GROUPS.get(course, {})
+        radio_buttons = [
+            ft.Radio(value=str(group_id), label=group_name)
+            for group_name, group_id in groups.items()
+        ]
+        self.group_radio.content.controls = radio_buttons
+        self.group_radio.value = None  # сброс выбора
+        self.schedule_display.controls.clear()
         self.update()
 
     def on_group_change(self, e):
-        self.selected_group_id = e.control.value
-        self.load_schedule(int(self.selected_group_id))
+        group_id = self.group_radio.value
+        if group_id:
+            self.load_schedule(int(group_id))
 
     def load_schedule(self, group_id):
-        self.schedule_output.controls.clear()
-        self.schedule_output.controls.append(ft.Text("Загрузка расписания..."))
-        self.update()
-
+        self.schedule_display.controls.clear()
         try:
-            # Запрос данных расписания
             url = f"https://api.ursei.su/public/schedule/rest/GetGsSched?grpid={group_id}"
             response = requests.get(url)
             data = response.json()
 
-            self.schedule_output.controls.clear()
-            if not data or "data" not in data:
-                self.schedule_output.controls.append(ft.Text("Нет данных о расписании."))
-            else:
-                for day in data["data"]:
-                    day_title = ft.Text(day["day_string"], size=16, weight="bold")
-                    lessons = []
-                    for lesson in day.get("lessons", []):
-                        lesson_info = f"{lesson['time_start']} - {lesson['time_end']} | {lesson['subject']} ({lesson['type']})"
-                        lessons.append(ft.Text(lesson_info))
+            for item in data.get("data", []):
+                self.schedule_display.controls.append(
+                    ft.Text(f"{item.get('subject')} - {item.get('aud')} ({item.get('starttime')})")
+                )
 
-                    self.schedule_output.controls.append(ft.Column([day_title, *lessons]))
-
-        except Exception as ex:
-            self.schedule_output.controls.clear()
-            self.schedule_output.controls.append(ft.Text(f"Ошибка загрузки: {ex}"))
-
+        except Exception as err:
+            self.schedule_display.controls.append(ft.Text(f"Ошибка загрузки: {err}"))
         self.update()
-
-    # Переопределение метода _get_control_name для класса
-    def _get_control_name(self):
-        return "ScheduleTab"
-
