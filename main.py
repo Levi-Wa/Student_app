@@ -11,7 +11,7 @@ class App:
         return ft.Tabs(
             selected_index=0,
             tabs=[
-                ft.Tab(text="Расписание", content=ft.Text("Вкладка расписания")),
+                ft.Tab(text="Расписание", content=ScheduleTab()),
                 ft.Tab(text="Заметки", content=ft.Text("Вкладка заметок")),
                 ft.Tab(text="Настройки", content=ft.Text("Вкладка настроек")),
             ]
