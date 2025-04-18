@@ -1,17 +1,16 @@
 import flet as ft
 import requests
 
-class ScheduleTab(ft.Control):  # Используем Control
-    def __init__(self):
+class ScheduleTab(ft.Control):
+    def __init__(self, page):
         super().__init__()
+        self.page = page  # Сохраняем ссылку на страницу
         self.selected_course = None
         self.selected_group_id = None
-        self.course_radio = None
-        self.group_radio = None
         self.schedule_output = ft.Column()
 
     def build(self):
-        # Вкладка с радиокнопками для выбора курса
+        # Радиокнопки для выбора курса
         self.course_radio = ft.RadioGroup(
             content=ft.Column([
                 ft.Text("Выберите курс:", size=20, weight="bold"),
@@ -20,7 +19,7 @@ class ScheduleTab(ft.Control):  # Используем Control
             on_change=self.on_course_change
         )
 
-        # Радиокнопки для выбора группы, добавляем пустой content
+        # Радиокнопки для выбора группы
         self.group_radio = ft.RadioGroup(
             content=ft.Column([]),
             on_change=self.on_group_change
@@ -33,9 +32,6 @@ class ScheduleTab(ft.Control):  # Используем Control
             ft.Divider(),
             self.schedule_output
         ])
-
-    def _get_control_name(self):
-        return f"schedule_tab_{id(self)}"  # Возвращаем уникальное имя для этого контрола
 
     def on_course_change(self, e):
         self.selected_course = e.control.value
@@ -91,3 +87,8 @@ class ScheduleTab(ft.Control):  # Используем Control
             self.schedule_output.controls.append(ft.Text(f"Ошибка загрузки: {ex}"))
 
         self.update()
+
+    # Переопределение метода _get_control_name для класса
+    def _get_control_name(self):
+        return "ScheduleTab"
+
