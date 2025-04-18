@@ -1,16 +1,16 @@
 import flet as ft
-from views.settings_view import SettingsTab
+#from views.settings_view import SettingsTab
 from views.schedule_view import ScheduleTab
-from views.notes_view import NotesTab
+#from views.notes_view import NotesTab
 
-class App(ft.UserControl):
+class App(ft.Control):
     def build(self):
         self.tabs = ft.Tabs(
             selected_index=1,
             tabs=[
-                ft.Tab(text="Настройки", content=SettingsTab()),
+                #ft.Tab(text="Настройки", content=SettingsTab()),
                 ft.Tab(text="Расписание", content=ScheduleTab()),
-                ft.Tab(text="Заметки", content=NotesTab())
+                #ft.Tab(text="Заметки", content=NotesTab())
             ],
             expand=1,
         )

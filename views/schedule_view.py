@@ -22,7 +22,7 @@ LESSON_TIMES = [
 ]
 
 
-class ScheduleTab(ft.UserControl):
+class ScheduleTab(ft.Control):
     def build(self):
         self.selected_course = 1
         self.selected_group_id = None
