@@ -1,66 +1,94 @@
 import flet as ft
-import requests
+import httpx
 
-# Группы с ID по курсам
-CUSTOM_GROUPS = {
-    1: {"ИД-101": 26616, "ИД-102": 26617},
-    2: {"ИД-201": 26618, "ИД-202": 26619},
-    3: {"ИД-301": 26620, "ИД-302": 26621},
-    4: {"ИД-401": 26622, "ИД-402": 26623},
+# ✍️ Тут можно добавить свои группы и их ID
+GROUPS_BY_COURSE = {
+    "1": {
+        "ИД-101": 26616,
+        "ИД-102": 26617
+    },
+    "2": {
+        "ИД-201": 26618
+    },
+    "3": {
+        "ИД-301": 26619
+    },
+    "4": {
+        "ИД-401": 26620
+    }
 }
 
 class ScheduleTab(ft.Column):
     def __init__(self):
         super().__init__()
-        self.course_selector = ft.Dropdown(
+
+        self.course_dropdown = ft.Dropdown(
             label="Выберите курс",
             options=[ft.dropdown.Option(str(i)) for i in range(1, 5)],
-            on_change=self.on_course_change,
+            on_change=self.on_course_change
         )
 
-        self.group_radio = ft.RadioGroup(content=ft.Column([]), on_change=self.on_group_change)
-        self.schedule_display = ft.Column()
+        self.group_checkboxes_container = ft.Column()
+
+        self.schedule_output = ft.Text("Выберите группу, чтобы отобразить расписание")
 
         self.controls = [
-            ft.Text("Расписание", style="headlineMedium"),
-            self.course_selector,
-            self.group_radio,
-            ft.Divider(),
-            self.schedule_display,
+            ft.Text("📅 Расписание", size=24, weight="bold"),
+            self.course_dropdown,
+            self.group_checkboxes_container,
+            self.schedule_output
         ]
 
     def on_course_change(self, e):
-        selected_course = int(self.course_selector.value)
-        self.load_groups_for_course(selected_course)
+        self.group_checkboxes_container.controls.clear()
 
-    def load_groups_for_course(self, course):
-        groups = CUSTOM_GROUPS.get(course, {})
-        radio_buttons = [
-            ft.Radio(value=str(group_id), label=group_name)
-            for group_name, group_id in groups.items()
-        ]
-        self.group_radio.content.controls = radio_buttons
-        self.group_radio.value = None  # сброс выбора
-        self.schedule_display.controls.clear()
+        course = self.course_dropdown.value
+        groups = GROUPS_BY_COURSE.get(course, {})
+
+        for group_name, group_id in groups.items():
+            checkbox = ft.Checkbox(label=group_name, on_change=self.on_group_checkbox)
+            checkbox.data = group_id  # сохраняем ID группы в поле data
+            self.group_checkboxes_container.controls.append(checkbox)
+
+        self.schedule_output.value = "Выберите группу, чтобы отобразить расписание"
+        self.group_checkboxes_container.update()
         self.update()
 
-    def on_group_change(self, e):
-        group_id = self.group_radio.value
-        if group_id:
-            self.load_schedule(int(group_id))
+    def on_group_checkbox(self, e):
+        selected_ids = [
+            cb.data
+            for cb in self.group_checkboxes_container.controls
+            if cb.value
+        ]
 
-    def load_schedule(self, group_id):
-        self.schedule_display.controls.clear()
-        try:
-            url = f"https://api.ursei.su/public/schedule/rest/GetGsSched?grpid={group_id}"
-            response = requests.get(url)
-            data = response.json()
+        if not selected_ids:
+            self.schedule_output.value = "Выберите хотя бы одну группу"
+            self.update()
+            return
 
-            for item in data.get("data", []):
-                self.schedule_display.controls.append(
-                    ft.Text(f"{item.get('subject')} - {item.get('aud')} ({item.get('starttime')})")
-                )
+        self.schedule_output.value = "Загрузка расписания..."
+        self.update()
+        self.load_schedules(selected_ids)
 
-        except Exception as err:
-            self.schedule_display.controls.append(ft.Text(f"Ошибка загрузки: {err}"))
+    def load_schedules(self, group_ids):
+        all_schedules = ""
+
+        for group_id in group_ids:
+            try:
+                url = f"https://api.ursei.su/public/schedule/rest/GetGsSched?grpid={group_id}"
+                response = httpx.get(url, timeout=10)
+                data = response.json()
+
+                all_schedules += f"\n📘 Группа ID: {group_id}\n"
+                for day in data.get("data", []):
+                    all_schedules += f"\n📅 {day['day']}\n"
+                    for lesson in day["schedule"]:
+                        time = lesson.get("time", "")
+                        subject = lesson.get("subject", "")
+                        all_schedules += f"  ⏰ {time} — {subject}\n"
+
+            except Exception as ex:
+                all_schedules += f"\n⚠️ Ошибка загрузки для группы {group_id}: {ex}\n"
+
+        self.schedule_output.value = all_schedules or "Нет данных"
         self.update()
