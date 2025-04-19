@@ -10,7 +10,7 @@ class App:
 
     def show_group_selector(self):
         """Показывает экран выбора группы"""
-        self.page.controls.clear()
+        self.page.clean()
         
         # Элементы выбора курса
         self.course_dropdown = ft.Dropdown(
@@ -26,7 +26,7 @@ class App:
         confirm_button = ft.ElevatedButton(
             "Продолжить",
             on_click=self.start_app_handler,
-            icon=ft.icons.ARROW_FORWARD_IOS
+            icon=ft.icons.ARROW_FORWARD
         )
 
         self.page.add(
@@ -52,7 +52,7 @@ class App:
         
         self.groups_container.controls = [
             ft.Checkbox(
-                label=f"{name}",
+                label=f"{name} (ID: {id_})",
                 data=id_,
                 on_change=self.update_selected_groups
             ) for name, id_ in groups.items()
@@ -76,29 +76,27 @@ class App:
             await self.page.update_async()
             return
             
-        self.page.controls.clear()
-        self.page.add(self.create_main_tabs())
-        await self.page.update_async()
+        await self.show_main_interface()
 
-    def create_main_tabs(self):
-        """Создает вкладки основного приложения"""
-        return ft.Tabs(
+    async def show_main_interface(self):
+        """Показывает основной интерфейс с вкладками"""
+        self.page.clean()
+        
+        # Создаем и добавляем вкладку расписания
+        schedule_tab = ScheduleTab()
+        await schedule_tab.set_groups(self.selected_groups)
+        
+        tabs = ft.Tabs(
             selected_index=0,
             tabs=[
-                ft.Tab(
-                    text="Расписание",
-                    content=ScheduleTab(self.selected_groups)
-                ),
-                ft.Tab(
-                    text="Заметки",
-                    content=ft.Text("Вкладка заметок")
-                ),
-                ft.Tab(
-                    text="Настройки",
-                    content=ft.Text("Вкладка настроек")
-                )
+                ft.Tab(text="Расписание", content=schedule_tab),
+                ft.Tab(text="Заметки", content=ft.Text("Вкладка заметок")),
+                ft.Tab(text="Настройки", content=ft.Text("Вкладка настроек")),
             ]
         )
+        
+        self.page.add(tabs)
+        await self.page.update_async()
 
 def main(page: ft.Page):
     page.title = "Студенческое приложение"
