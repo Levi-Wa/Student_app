@@ -2,21 +2,25 @@ import flet as ft
 import datetime
 import asyncio
 import httpx
-import weakref
 import pytz
 
-
-class ScheduleTab(ft.UserControl):
+class ScheduleTab(ft.Control):
     def __init__(self, page: ft.Page):
         super().__init__()
-        self.page = page
-        self.group_ids = []
-        self.selected_day = datetime.date.today()
+        self.page = page  # Атрибут для страницы
+        self.group_ids = []  # Начальные значения для групп
+        self.selected_day = datetime.date.today()  # Начальный день
         self.selected_period = "Неделя"
         self.loading = False
 
+    def set_groups(self, group_ids, selected_day):
+        # Устанавливаем группы и выбранный день
+        self.group_ids = group_ids
+        self.selected_day = selected_day
+        asyncio.create_task(self.refresh_schedule())  # Обновляем расписание после установки значений
 
     def build(self):
+        # Ожидаемый код для построения интерфейса
         self.period_dropdown = ft.Dropdown(
             options=[
                 ft.dropdown.Option("Сегодня"),
@@ -204,5 +208,5 @@ class ScheduleTab(ft.UserControl):
                 target_time += datetime.timedelta(days=1)
 
             await asyncio.sleep((target_time - now).total_seconds())
-            if self.page:
+            if self._page:
                 await self.refresh_schedule()
