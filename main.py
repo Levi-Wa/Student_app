@@ -83,29 +83,33 @@ class App:
     async def show_main_interface(self):
         """Показывает основной интерфейс с вкладками"""
         self.page.clean()
-        
+
         # Создаем вкладку расписания
-        schedule_tab = ScheduleTab()
-        
+        schedule_tab = ScheduleTab(self.page)
+
         tabs = ft.Tabs(
             selected_index=0,
             tabs=[
-                ft.Tab(text="Расписание", content=schedule_tab),
                 ft.Tab(text="Заметки", content=ft.Text("Вкладка заметок")),
+                ft.Tab(text="Расписание", content=schedule_tab),
                 ft.Tab(text="Настройки", content=ft.Text("Вкладка настроек")),
             ]
         )
-        
+
         self.page.add(tabs)
-        self.page.update()
-        
+        self.page.update()  # Обязательно ждем, чтобы всё добавилось на страницу
+
         # Устанавливаем группы после добавления на страницу
         await schedule_tab.set_groups(self.selected_groups, self.selected_day)
+
 
 def main(page: ft.Page):
     page.title = "Студенческое приложение"
     page.window_width = 400
     page.window_height = 800
+    schedule_tab = ScheduleTab(page)
+    page.add(schedule_tab)
+    page.update()
     App(page)
 
 ft.app(target=main)
