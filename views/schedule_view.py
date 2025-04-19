@@ -14,6 +14,9 @@ class ScheduleTab(ft.Control):
         self.loading = False
         self.page.run_task(self.check_schedule_at_5pm)
 
+    def _get_control_name(self):
+            return "scheduletab"
+    
 
     def build(self):
         # Ожидаемый код для построения интерфейса
@@ -26,7 +29,11 @@ class ScheduleTab(ft.Control):
             ],
             value=self.selected_period,
             on_change=lambda e: asyncio.create_task(self.on_period_change(e)),
-            width=150
+            width=150,
+            border_color="#2196F3",
+            focused_border_color="#1976D2",
+            filled=True,
+            bgcolor="#E3F2FD"
         )
 
         self.refresh_button = ft.ElevatedButton(
@@ -92,7 +99,12 @@ class ScheduleTab(ft.Control):
         try:
             response = await client.get(url, timeout=10.0)
             response.raise_for_status()
-            return response.json()
+            data = response.json()
+            if not data.get("Month"):  # Проверка на пустые данные
+                return {"error": "Расписание пустое"}
+            return data
+        except httpx.HTTPStatusError as e:
+            return {"error": f"HTTP error: {e.response.status_code}"}
         except Exception as ex:
             return {"error": str(ex)}
 
@@ -121,6 +133,18 @@ class ScheduleTab(ft.Control):
 
         for month in schedule.get("Month", []):
             for day in month.get("Sched", []):
+                date_str = day.get("datePair", "")
+                if not date_str:
+                    continue
+                day_date = datetime.datetime.strptime(date_str, "%d.%m.%Y").date()
+                
+                # Фильтрация по выбранному периоду
+                if self.selected_period == "Сегодня" and day_date != current_date:
+                    continue
+                elif self.selected_period == "Неделя" and (day_date - current_date).days > 7:
+                    continue
+                # ... аналогично для других периодов
+                
                 day_card = self.create_day_card(day, current_date, tomorrow_date)
                 if day_card:
                     group_column.controls.append(day_card)
@@ -195,6 +219,13 @@ class ScheduleTab(ft.Control):
     def show_message(self, message):
         self.schedule_output.controls = [ft.Text(message)]
         self.update()
+
+    def set_loading(self, loading: bool):
+        self.loading = loading
+        self.loading_indicator.visible = loading
+        self.error_display.visible = False
+        self.schedule_output.visible = not loading
+        self.page.update()  # Меняем self.update() на page.update
 
     async def set_groups(self, group_ids, selected_day):
         self.group_ids = group_ids
