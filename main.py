@@ -75,7 +75,7 @@ class App:
                 content=ft.Text("Выберите хотя бы одну группу!"),
                 open=True
             )
-            await self.page.update_async()
+            self.page.update()
             return
             
         await self.show_main_interface()
@@ -97,7 +97,7 @@ class App:
         )
         
         self.page.add(tabs)
-        await self.page.update_async()
+        self.page.update()
         
         # Устанавливаем группы после добавления на страницу
         await schedule_tab.set_groups(self.selected_groups, self.selected_day)
