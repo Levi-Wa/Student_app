@@ -1,94 +1,165 @@
 import flet as ft
-import httpx
+from datetime import datetime
+import json
+from pathlib import Path
 
-# ✍️ Тут можно добавить свои группы и их ID
-GROUPS_BY_COURSE = {
-    "1": {
-        "ИД-101": 26616,
-        "ИД-102": 26617
-    },
-    "2": {
-        "ИД-201": 26618
-    },
-    "3": {
-        "ИД-301": 26619
-    },
-    "4": {
-        "ИД-401": 26620
-    }
+# Конфигурационный файл
+CONFIG_FILE = Path("config.json")
+
+# Фиксированный список групп (редактируется в коде)
+GROUPS = {
+    "1": {"ИД-101": 26616},
+    "2": {},
+    "3": {},
+    "4": {}
 }
 
-class ScheduleTab(ft.Column):
-    def __init__(self):
+class StartupMenu(ft.Column):
+    """Начальный экран выбора группы"""
+    def __init__(self, page: ft.Page):
         super().__init__()
-
+        self.page = page
+        self.selected_group_id = None
+        
+        # Элементы управления
         self.course_dropdown = ft.Dropdown(
             label="Выберите курс",
             options=[ft.dropdown.Option(str(i)) for i in range(1, 5)],
-            on_change=self.on_course_change
+            on_change=self.update_groups,
+            width=200
         )
+        
+        self.group_dropdown = ft.Dropdown(
+            label="Выберите группу",
+            width=300
+        )
+        
+        self.controls = [
+            ft.Text("Настройки группы", size=24, weight="bold"),
+            ft.Row([self.course_dropdown, self.group_dropdown]),
+            ft.ElevatedButton(
+                "Сохранить и продолжить",
+                on_click=self.save_settings,
+                icon=ft.icons.SAVE
+            )
+        ]
+        
+        # Загрузка начальных данных
+        self.update_groups()
 
-        self.group_checkboxes_container = ft.Column()
+    def update_groups(self, e=None):
+        course = self.course_dropdown.value or "1"
+        groups = GROUPS.get(course, {})
+        
+        self.group_dropdown.options = [
+            ft.dropdown.Option(
+                text=f"{name} (ID: {id_})", 
+                key=str(id_)
+            for name, id_ in groups.items()
+        ]
+        self.group_dropdown.update()
 
-        self.schedule_output = ft.Text("Выберите группу, чтобы отобразить расписание")
+    def save_settings(self, e):
+        if not self.group_dropdown.value:
+            self.page.snack_bar = ft.SnackBar(
+                content=ft.Text("Выберите группу!"),
+                open=True
+            )
+            self.page.update()
+            return
+            
+        config = {
+            "course": self.course_dropdown.value,
+            "group_id": self.group_dropdown.value
+        }
+        
+        with open(CONFIG_FILE, "w") as f:
+            json.dump(config, f)
+            
+        self.page.views.clear()
+        main_view = MainView(self.page)
+        self.page.views.append(main_view)
+        self.page.update()
 
+class ScheduleTab(ft.Column):
+    """Вкладка с расписанием (без выбора группы)"""
+    def __init__(self, page: ft.Page):
+        super().__init__(expand=True)
+        self.page = page
+        self.group_id = None
+        self.schedule_output = ft.Column(
+            scroll=ft.ScrollMode.AUTO,
+            expand=True
+        )
+        
         self.controls = [
             ft.Text("📅 Расписание", size=24, weight="bold"),
-            self.course_dropdown,
-            self.group_checkboxes_container,
+            ft.ElevatedButton(
+                "Обновить",
+                icon=ft.icons.REFRESH,
+                on_click=self.refresh_schedule
+            ),
             self.schedule_output
         ]
-
-    def on_course_change(self, e):
-        self.group_checkboxes_container.controls.clear()
-
-        course = self.course_dropdown.value
-        groups = GROUPS_BY_COURSE.get(course, {})
-
-        for group_name, group_id in groups.items():
-            checkbox = ft.Checkbox(label=group_name, on_change=self.on_group_checkbox)
-            checkbox.data = group_id  # сохраняем ID группы в поле data
-            self.group_checkboxes_container.controls.append(checkbox)
-
-        self.schedule_output.value = "Выберите группу, чтобы отобразить расписание"
-        self.group_checkboxes_container.update()
-        self.update()
-
-    def on_group_checkbox(self, e):
-        selected_ids = [
-            cb.data
-            for cb in self.group_checkboxes_container.controls
-            if cb.value
-        ]
-
-        if not selected_ids:
-            self.schedule_output.value = "Выберите хотя бы одну группу"
-            self.update()
+        
+    async def refresh_schedule(self, e=None):
+        if not self.group_id:
             return
-
-        self.schedule_output.value = "Загрузка расписания..."
-        self.update()
-        self.load_schedules(selected_ids)
-
-    def load_schedules(self, group_ids):
-        all_schedules = ""
-
-        for group_id in group_ids:
-            try:
-                url = f"https://api.ursei.su/public/schedule/rest/GetGsSched?grpid={group_id}"
-                response = httpx.get(url, timeout=10)
+            
+        self.schedule_output.controls = [
+            ft.ProgressBar(),
+            ft.Text("Загрузка расписания...")
+        ]
+        self.schedule_output.update()
+        
+        try:
+            url = f"https://api.ursei.su/public/schedule/rest/GetGsSched?grpid={self.group_id}"
+            async with ft.HttpClient() as client:
+                response = await client.get(url)
                 data = response.json()
+                self.display_schedule(data)
+        except Exception as e:
+            self.schedule_output.controls = [
+                ft.Text(f"Ошибка загрузки: {str(e)}", color="red")
+            ]
+            self.schedule_output.update()
 
-                all_schedules += f"\n📘 Группа ID: {group_id}\n"
-                for day in data.get("data", []):
-                    all_schedules += f"\n📅 {day['day']}\n"
-                    for lesson in day["schedule"]:
-                        time = lesson.get("time", "")
-                        subject = lesson.get("subject", "")
-                        all_schedules += f"  ⏰ {time} — {subject}\n"
+    def display_schedule(self, data):
+        self.schedule_output.controls = []
+        
+        for month in data.get("Month", []):
+            for day in month.get("Sched", []):
+                day_schedule = ft.Column(spacing=5)
+                date_str = day.get("datePair", "")
+                day_week = day.get("dayWeek", "")
+                
+                day_title = f"📅 {date_str} ({day_week})"
+                day_schedule.controls.append(ft.Text(day_title, weight="bold"))
+                
+                for lesson in day.get("mainSchedule", []):
+                    lesson_text = [
+                        f"🕒 {lesson.get('TimeStart', '')}",
+                        f"📚 {lesson.get('SubjName', '')}",
+                    ]
+                    if classroom := lesson.get("Aud", ""):
+                        lesson_text.append(f"🏫 {classroom}")
+                    if teacher := lesson.get("FIO", ""):
+                        lesson_text.append(f"👤 {teacher}")
+                    
+                    day_schedule.controls.append(
+                        ft.Text(" | ".join(lesson_text))
+                    )
+                
+                self.schedule_output.controls.append(
+                    ft.Container(
+                        content=day_schedule,
+                        padding=10,
+                        margin=5,
+                        border=ft.border.all(1, "#e0e0e0"),
+                        border_radius=5
+                    )
+                )
+        
 
-            except Exception as ex:
-                all_schedules += f"\n⚠️ Ошибка загрузки для группы {group_id}: {ex}\n"
+    
 
-        self.schedule_output.value = all_schedules or "Нет данных"
-        self.update()
