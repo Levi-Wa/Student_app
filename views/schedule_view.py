@@ -5,11 +5,10 @@ import datetime
 from typing import List
 import pytz  # Для работы с временными зонами
 
-
 class ScheduleTab(ft.Column):
     def __init__(self):
         super().__init__(expand=True)
-        self.group_ids = []
+        self.group_ids = []  # ID выбранных групп
         self.loading = False
         self.selected_period = "Сегодня"  # По умолчанию выбран "Сегодня"
         self.previous_schedules = []  # Для хранения предыдущих расписаний
@@ -31,6 +30,7 @@ class ScheduleTab(ft.Column):
             value=self.selected_period,
             on_change=self.on_period_change
         )
+
 
         self.refresh_button = ft.ElevatedButton(
             "Обновить",
@@ -90,17 +90,20 @@ class ScheduleTab(ft.Column):
             response = await client.get(url, timeout=10.0)
             response.raise_for_status()
             return response.json()
+        except httpx.RequestError as e:
+            return {"error": f"Ошибка запроса: {e}"}
+        except httpx.HTTPStatusError as e:
+            return {"error": f"Ошибка HTTP: {e.response.status_code}"}
         except Exception as ex:
-            return {"error": str(ex)}
+            return {"error": f"Неизвестная ошибка: {str(ex)}"}
 
     async def display_schedules(self, schedules):
         """Отображает расписание в интерфейсе"""
-        self.schedule_output.controls = []
+        self.schedule_output.controls.clear()  # Очистить только элементы на текущий момент
 
         current_date = datetime.date.today()
         tomorrow_date = current_date + datetime.timedelta(days=1)
 
-        # Если сегодня выходной, то сдвигаем на следующий рабочий день
         if current_date.weekday() >= 5:  # 5 - суббота, 6 - воскресенье
             current_date += datetime.timedelta(days=(7 - current_date.weekday()))  # Переводим на понедельник
 
@@ -123,6 +126,7 @@ class ScheduleTab(ft.Column):
 
         await self.schedule_output.update()
 
+
     def create_day_card(self, day, current_date, tomorrow_date):
         """Создает карточку дня"""
         date_str = day.get("datePair", "")
@@ -131,6 +135,7 @@ class ScheduleTab(ft.Column):
 
         color = "grey"  # По умолчанию серый
 
+        # Цвет для текущего дня
         if day_date == current_date:
             color = "green"  # Сегодняшний день — зеленым
         elif day_date == tomorrow_date:
@@ -168,16 +173,24 @@ class ScheduleTab(ft.Column):
     async def display_changes(self, changes):
         """Отображает изменения в расписании"""
         for change in changes:
+            old_schedule = change.get("old")
+            new_schedule = change.get("new")
             self.schedule_output.controls.append(
-                ft.Text(f"Изменение расписания: {change}", color="red")
+                ft.Text(f"Изменение расписания:\nСтарое: {old_schedule}\nНовое: {new_schedule}", color="red")
             )
         await self.schedule_output.update()
 
+
+    async def set_groups(self, group_ids: List[int], selected_day: datetime.date):
+        """Устанавливает группы и выбранный день"""
+        self.group_ids = group_ids
+        self.selected_day = selected_day
+        await self.refresh_schedule()  # Загружаем расписание при инициализации
+
     async def check_schedule_at_3am(self):
         """Проверяет расписание каждый день в 3:00 по МСК"""
-        # Настроим временную зону для Москвы
         moscow_tz = pytz.timezone('Europe/Moscow')
-        
+
         while True:
             now = datetime.datetime.now(moscow_tz)
             target_time = now.replace(hour=3, minute=0, second=0, microsecond=0)
@@ -188,5 +201,5 @@ class ScheduleTab(ft.Column):
             time_to_wait = (target_time - now).total_seconds()
             await asyncio.sleep(time_to_wait)  # Засыпаем до 3:00 по МСК
 
-            # После того, как время наступило, проверяем расписание
-            await self.refresh_schedule()
+            await self.refresh_schedule()  # После того как 3:00 наступило, обновляем расписание
+
