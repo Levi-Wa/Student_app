@@ -1,7 +1,5 @@
 import flet as ft
-import asyncio
 import datetime
-import pytz  # Для работы с временными зонами
 from views.schedule_view import ScheduleTab
 
 class App:
@@ -9,7 +7,7 @@ class App:
         self.page = page
         self.selected_groups = []
         self.current_course = None
-        self.selected_day = None  # Дата для отображения расписания
+        self.selected_day = datetime.date.today()
         self.show_group_selector()
 
     def show_group_selector(self):
@@ -34,7 +32,7 @@ class App:
         )
 
         self.page.add(
-            ft.Column([ 
+            ft.Column([
                 ft.Text("Выбор группы", size=24),
                 self.course_dropdown,
                 ft.Text("Доступные группы:", weight="bold"),
@@ -79,32 +77,30 @@ class App:
             )
             await self.page.update_async()
             return
-
-        # Получаем текущую дату
-        today = datetime.date.today()
-        self.selected_day = today  # Присваиваем сегодняшнюю дату
-
+            
         await self.show_main_interface()
 
-    def show_main_interface(self):
+    async def show_main_interface(self):
+        """Показывает основной интерфейс с вкладками"""
+        self.page.clean()
+        
+        # Создаем вкладку расписания
         schedule_tab = ScheduleTab()
-
+        
         tabs = ft.Tabs(
             selected_index=0,
-            expand=1,
             tabs=[
                 ft.Tab(text="Расписание", content=schedule_tab),
-                # другие вкладки...
+                ft.Tab(text="Заметки", content=ft.Text("Вкладка заметок")),
+                ft.Tab(text="Настройки", content=ft.Text("Вкладка настроек")),
             ]
         )
-
-        self.page.controls.clear()
-        self.page.controls.append(tabs)
-        self.page.update()  # ✅ Синхронный вызов
-
-        # если schedule_tab.set_groups — асинхронная
-        asyncio.create_task(schedule_tab.set_groups(self.selected_groups, self.selected_day))
-
+        
+        self.page.add(tabs)
+        await self.page.update_async()
+        
+        # Устанавливаем группы после добавления на страницу
+        await schedule_tab.set_groups(self.selected_groups, self.selected_day)
 
 def main(page: ft.Page):
     page.title = "Студенческое приложение"

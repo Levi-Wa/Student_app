@@ -1,9 +1,8 @@
 import flet as ft
-import httpx
-import asyncio
 import datetime
-from typing import List
-import pytz  # Для работы с временными зонами
+import asyncio
+import httpx
+import pytz
 
 class ScheduleTab(ft.Column):
     def __init__(self):
@@ -22,16 +21,17 @@ class ScheduleTab(ft.Column):
 
         self.period_buttons = ft.RadioGroup(
             content=[
-                ft.Radio(value="Сегодня", label="Сегодня"),
-                ft.Radio(value="Неделя", label="Неделя"),
-                ft.Radio(value="Месяц", label="Месяц"),
-                ft.Radio(value="Все", label="Все")
+                ft.Radio(value="Сегодня", label="Сегодня", visible=True),
+                ft.Radio(value="Неделя", label="Неделя", visible=True),
+                ft.Radio(value="Месяц", label="Месяц", visible=True),
+                ft.Radio(value="Все", label="Все", visible=True)
             ],
             value=self.selected_period,
-            on_change=self.on_period_change
+            on_change=self.on_period_change,
+            visible=True
         )
 
-
+        
         self.refresh_button = ft.ElevatedButton(
             "Обновить",
             icon=ft.icons.REFRESH,
@@ -51,8 +51,12 @@ class ScheduleTab(ft.Column):
     async def refresh_schedule(self, e=None):
         """Загружает расписание для выбранных групп"""
         if not self.group_ids:
-            self.schedule_output.controls = [ft.Text("Группы не выбраны")]
+            self.schedule_output.controls = [
+                ft.ProgressBar(value=0, width=300),  # Например, если ProgressBar требует значения
+                ft.Text("Загрузка расписания...")
+            ]
             await self.schedule_output.update()
+
             return
 
         self.loading = True
@@ -90,23 +94,21 @@ class ScheduleTab(ft.Column):
             response = await client.get(url, timeout=10.0)
             response.raise_for_status()
             return response.json()
-        except httpx.RequestError as e:
-            return {"error": f"Ошибка запроса: {e}"}
-        except httpx.HTTPStatusError as e:
-            return {"error": f"Ошибка HTTP: {e.response.status_code}"}
         except Exception as ex:
-            return {"error": f"Неизвестная ошибка: {str(ex)}"}
+            return {"error": str(ex)}
 
     async def display_schedules(self, schedules):
         """Отображает расписание в интерфейсе"""
-        self.schedule_output.controls.clear()  # Очистить только элементы на текущий момент
+        self.schedule_output.controls = []
 
         current_date = datetime.date.today()
         tomorrow_date = current_date + datetime.timedelta(days=1)
 
+        # Если сегодня выходной, то сдвигаем на следующий рабочий день
         if current_date.weekday() >= 5:  # 5 - суббота, 6 - воскресенье
             current_date += datetime.timedelta(days=(7 - current_date.weekday()))  # Переводим на понедельник
 
+        # Отображаем расписание для каждой группы
         for group_id, schedule in zip(self.group_ids, schedules):
             if "error" in schedule:
                 self.schedule_output.controls.append(ft.Text(f"Ошибка для группы {group_id}: {schedule['error']}", color="red"))
@@ -125,7 +127,6 @@ class ScheduleTab(ft.Column):
             )
 
         await self.schedule_output.update()
-
 
     def create_day_card(self, day, current_date, tomorrow_date):
         """Создает карточку дня"""
@@ -155,7 +156,7 @@ class ScheduleTab(ft.Column):
 
     def create_lesson_row(self, lesson):
         """Создает строку с информацией о занятии"""
-        return ft.Row([
+        return ft.Row([ 
             ft.Text(lesson.get("TimeStart", ""), width=60),
             ft.Column([ft.Text(lesson.get("SubjName", ""), weight="bold"), ft.Text(lesson.get("LoadKindSN", ""), size=12, color="grey")], expand=2),
             ft.Text(lesson.get("Aud", ""), width=60),
@@ -173,33 +174,31 @@ class ScheduleTab(ft.Column):
     async def display_changes(self, changes):
         """Отображает изменения в расписании"""
         for change in changes:
-            old_schedule = change.get("old")
-            new_schedule = change.get("new")
             self.schedule_output.controls.append(
-                ft.Text(f"Изменение расписания:\nСтарое: {old_schedule}\nНовое: {new_schedule}", color="red")
+                ft.Text(f"Изменение расписания: {change}", color="red")
             )
         await self.schedule_output.update()
 
-
-    async def set_groups(self, group_ids: List[int], selected_day: datetime.date):
+    async def set_groups(self, group_ids: list[int], selected_day: datetime.date):
         """Устанавливает группы и выбранный день"""
         self.group_ids = group_ids
         self.selected_day = selected_day
         await self.refresh_schedule()  # Загружаем расписание при инициализации
 
-    async def check_schedule_at_3am(self):
-        """Проверяет расписание каждый день в 3:00 по МСК"""
-        moscow_tz = pytz.timezone('Europe/Moscow')
-
+    async def check_schedule_at_5pm(self):
+        """Проверка расписания каждый день в 5:00 по Челябинскому времени"""
+        # Настроим временную зону для Челябинска
+        chelyabinsk_tz = pytz.timezone('Asia/Yekaterinburg')
+        
         while True:
-            now = datetime.datetime.now(moscow_tz)
-            target_time = now.replace(hour=3, minute=0, second=0, microsecond=0)
+            now = datetime.datetime.now(chelyabinsk_tz)
+            target_time = now.replace(hour=17, minute=0, second=0, microsecond=0)
             
             if now > target_time:
-                target_time += datetime.timedelta(days=1)  # Если 3:00 уже прошло, назначаем на завтра
+                target_time += datetime.timedelta(days=1)  # Если 17:00 уже прошло, назначаем на завтра
 
             time_to_wait = (target_time - now).total_seconds()
-            await asyncio.sleep(time_to_wait)  # Засыпаем до 3:00 по МСК
+            await asyncio.sleep(time_to_wait)  # Засыпаем до 5:00 по Челябинскому времени
 
-            await self.refresh_schedule()  # После того как 3:00 наступило, обновляем расписание
-
+            # После того, как время наступило, проверяем расписание
+            await self.refresh_schedule()
