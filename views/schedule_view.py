@@ -12,12 +12,8 @@ class ScheduleTab(ft.Control):
         self.selected_day = datetime.date.today()  # Начальный день
         self.selected_period = "Неделя"
         self.loading = False
+        self.page.run_task(self.check_schedule_at_5pm)
 
-    def set_groups(self, group_ids, selected_day):
-        # Устанавливаем группы и выбранный день
-        self.group_ids = group_ids
-        self.selected_day = selected_day
-        asyncio.create_task(self.refresh_schedule())  # Обновляем расписание после установки значений
 
     def build(self):
         # Ожидаемый код для построения интерфейса
@@ -141,6 +137,8 @@ class ScheduleTab(ft.Control):
     def create_day_card(self, day, current_date, tomorrow_date):
         try:
             date_str = day.get("datePair", "")
+            if not date_str:
+                return ft.Text("Дата не указана", color="red")
             day_date = datetime.datetime.strptime(date_str, "%d.%m.%Y").date()
             day_week = day.get("dayWeek", "")
 
@@ -174,15 +172,20 @@ class ScheduleTab(ft.Control):
         ])
 
     def create_lesson_row(self, lesson):
-        return ft.Row([
-            ft.Text(lesson.get("TimeStart", ""), width=60),
-            ft.Column([
-                ft.Text(lesson.get("SubjName", ""), weight="bold"),
-                ft.Text(lesson.get("LoadKindSN", ""), size=12, color="grey")
-            ], expand=2),
-            ft.Text(lesson.get("Aud", ""), width=60),
-            ft.Text(lesson.get("FIO", ""), width=150, size=12)
-        ], spacing=10)
+        return ft.Container(
+            content=ft.Row([
+                ft.Text(lesson.get("TimeStart", ""), width=80),
+                ft.Column([
+                    ft.Text(lesson.get("SubjName", ""), weight="bold"),
+                    ft.Text(lesson.get("LoadKindSN", ""), size=12, color="grey")
+                ], expand=2),
+                ft.Text(lesson.get("Aud", ""), width=80),
+                ft.Text(lesson.get("FIO", ""), width=200, size=12)
+            ], spacing=10),
+            padding=5,
+            border=ft.border.all(0.5, "#e0e0e0"),
+            margin=2
+        )
 
     def show_error(self, message):
         self.error_display.value = message
@@ -208,5 +211,5 @@ class ScheduleTab(ft.Control):
                 target_time += datetime.timedelta(days=1)
 
             await asyncio.sleep((target_time - now).total_seconds())
-            if self._page:
+            if self.page:
                 await self.refresh_schedule()
