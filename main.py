@@ -1,4 +1,5 @@
 import flet as ft
+import asyncio
 from views.schedule_view import ScheduleTab
 
 class App:
@@ -26,7 +27,7 @@ class App:
         confirm_button = ft.ElevatedButton(
             "Продолжить",
             on_click=self.start_app_handler,
-            icon=ft.icons.ARROW_FORWARD
+            icon=ft.Icons.ARROW_FORWARD
         )
 
         self.page.add(
@@ -78,25 +79,26 @@ class App:
             
         await self.show_main_interface()
 
-    async def show_main_interface(self):
-        """Показывает основной интерфейс с вкладками"""
-        self.page.clean()
-        
-        # Создаем и добавляем вкладку расписания
+    def show_main_interface(self):
         schedule_tab = ScheduleTab()
-        await schedule_tab.set_groups(self.selected_groups)
-        
+
         tabs = ft.Tabs(
             selected_index=0,
+            expand=1,
             tabs=[
                 ft.Tab(text="Расписание", content=schedule_tab),
-                ft.Tab(text="Заметки", content=ft.Text("Вкладка заметок")),
-                ft.Tab(text="Настройки", content=ft.Text("Вкладка настроек")),
+                # другие вкладки...
             ]
         )
-        
-        self.page.add(tabs)
-        await self.page.update_async()
+
+        self.page.controls.clear()
+        self.page.controls.append(tabs)
+        self.page.update()  # ✅ Синхронный вызов
+
+        # если schedule_tab.set_groups — асинхронная
+        asyncio.create_task(schedule_tab.set_groups(self.selected_groups))
+
+
 
 def main(page: ft.Page):
     page.title = "Студенческое приложение"
