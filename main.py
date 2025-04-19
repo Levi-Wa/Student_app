@@ -8,27 +8,28 @@ class App:
         self.selected_groups = []
         self.current_course = None
         self.selected_day = datetime.date.today()
-        self.show_group_selector()
+        self.course_dropdown = None
+        self.groups_container = None
 
-    def show_group_selector(self):
-        """Показывает экран выбора группы"""
+    async def build(self):
+        await self.show_group_selector()
+
+    async def show_group_selector(self):
         self.page.clean()
-        
-        # Элементы выбора курса
+
         self.course_dropdown = ft.Dropdown(
             label="Выберите курс",
             options=[ft.dropdown.Option(str(i)) for i in range(1, 5)],
             width=200,
             on_change=self.update_groups
         )
-        
-        # Контейнер для чекбоксов групп
+
         self.groups_container = ft.Column()
-        
+
         confirm_button = ft.ElevatedButton(
             "Продолжить",
             on_click=self.start_app_handler,
-            icon=ft.Icons.ARROW_FORWARD
+            icon=ft.Icons.ARROW_FORWARD  # исправлено на Icons с большой буквы
         )
 
         self.page.add(
@@ -43,7 +44,6 @@ class App:
         self.page.update()
 
     def update_groups(self, e):
-        """Обновляет список групп для выбранного курса"""
         self.current_course = self.course_dropdown.value
         groups = {
             "1": {"ИД-101": 26616, "ИД-102": 26617},
@@ -51,7 +51,7 @@ class App:
             "3": {"ИД-301": 26619},
             "4": {"ИД-401": 26620}
         }.get(self.current_course, {})
-        
+
         self.groups_container.controls = [
             ft.Checkbox(
                 label=f"{name} (ID: {id_})",
@@ -62,14 +62,12 @@ class App:
         self.groups_container.update()
 
     def update_selected_groups(self, e):
-        """Обновляет список выбранных групп"""
         if e.control.value:
             self.selected_groups.append(e.control.data)
         else:
             self.selected_groups.remove(e.control.data)
 
     async def start_app_handler(self, e):
-        """Обработчик кнопки запуска"""
         if not self.selected_groups:
             self.page.snack_bar = ft.SnackBar(
                 content=ft.Text("Выберите хотя бы одну группу!"),
@@ -77,7 +75,7 @@ class App:
             )
             self.page.update()
             return
-            
+
         await self.show_main_interface()
 
     async def show_main_interface(self):
@@ -85,7 +83,7 @@ class App:
         self.page.clean()
 
         # Создаем вкладку расписания
-        schedule_tab = ScheduleTab(self.page)
+        schedule_tab = ScheduleTab(self.page)  # Передаем page в конструктор
 
         tabs = ft.Tabs(
             selected_index=0,
@@ -97,19 +95,17 @@ class App:
         )
 
         self.page.add(tabs)
-        self.page.update()  # Обязательно ждем, чтобы всё добавилось на страницу
+        self.page.update()
 
         # Устанавливаем группы после добавления на страницу
         await schedule_tab.set_groups(self.selected_groups, self.selected_day)
 
 
-def main(page: ft.Page):
+async def main(page: ft.Page):
     page.title = "Студенческое приложение"
     page.window_width = 400
     page.window_height = 800
-    schedule_tab = ScheduleTab(page)
-    page.add(schedule_tab)
-    page.update()
-    App(page)
+    app = App(page)
+    await app.build()
 
 ft.app(target=main)
