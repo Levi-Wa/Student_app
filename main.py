@@ -1,7 +1,7 @@
 import flet as ft
 import datetime
 from views.schedule_view import ScheduleTab
-
+from views.settings_view import SettingsView
 
 class App:
     def __init__(self, page: ft.Page,):
@@ -88,6 +88,7 @@ class App:
         """Показываем основной интерфейс"""
         self.page.clean()
         schedule_tab = ScheduleTab(self.page)  # Передаем page в конструктор
+        settings_view=SettingsView(self.page)
         await schedule_tab.set_groups(self.selected_groups, self.selected_day)
 
         tabs = ft.Tabs(
@@ -111,7 +112,7 @@ class App:
                 ft.Tab(
                     text="Настройки",
                     content=ft.Container(
-                        content=ft.Text("Вкладка настроек"),
+                        content=settings_view.build(),
                         expand=True
                     )
                 ),

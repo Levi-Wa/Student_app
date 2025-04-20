@@ -54,17 +54,32 @@ class ScheduleTab(ft.Control):
         self.selected_period = e.control.value  # Обновляем выбранный период
         print(f"Выбранный период изменён: {self.selected_period}")
         await self.refresh_schedule()  # Автоматическое обновление расписания
+        print("Обновление расписания завершено.")
         self.update()
 
     async def refresh_schedule(self):
-        """Обновляем расписание в зависимости от выбранного периода"""
+        """Обновляем расписание в зависимости от выбранного периода."""
+        # Устанавливаем индикатор загрузки
         self.set_loading(True)
+
         try:
-            schedules = await self.fetch_schedules()  # Получаем данные расписания
-            await self.display_schedules(schedules)  # Отображаем расписание
+            # Получаем расписания для всех групп
+            schedules = await self.fetch_schedules()
+
+            # Проверяем, есть ли ошибки в полученных расписаниях
+            if any("error" in schedule for schedule in schedules):
+                self.show_error("Ошибка при получении расписания для одной или нескольких групп.")
+                return
+
+            # Отображаем расписание
+            await self.display_schedules(schedules)
+
         except Exception as ex:
+            # Обрабатываем любые исключения и показываем сообщение об ошибке
             self.show_error(f"Ошибка загрузки: {str(ex)}")
+
         finally:
+            # Скрываем индикатор загрузки и обновляем интерфейс
             self.set_loading(False)
             self.update()
 
@@ -102,6 +117,7 @@ class ScheduleTab(ft.Control):
             return await asyncio.gather(*tasks)
 
     async def display_schedules(self, schedules):
+        print(f"Полученные расписания для отображения: {schedules}")  # Отладочное сообщение
         self.schedule_output.controls.clear()
         current_date = self.selected_day  # Используем выбранную дату
         tomorrow = current_date + datetime.timedelta(days=1)
@@ -118,19 +134,14 @@ class ScheduleTab(ft.Control):
                 ft.Text(f"Группа ID: {group_id}", size=16, weight="bold")
             )
 
-            # Если выбран режим "Все", группируем записи по месяцам
+            # Фильтрация расписания в зависимости от выбранного периода
             if self.selected_period == "Все":
+                # Логика для отображения всех данных
                 for month in schedule.get("Month", []):
-                    month_name = month.get("Name", "Неизвестный месяц")
-                    # Добавляем заголовок месяца
-                    group_column.controls.append(
-                        ft.Text(f"{month_name}", size=18, weight="bold", bgcolor="#e0e0e0")
-                    )
-                    for day in month.get("Sched", []):
-                        day_card = self.create_day_card(day, current_date, tomorrow)
-                        group_column.controls.append(day_card)
+                    # Добавьте логику для отображения всех месяцев
+                    pass
             else:
-                # Для остальных режимов фильтруем по выбранной дате
+                # Логика для фильтрации по выбранному периоду
                 for month in schedule.get("Month", []):
                     for day in month.get("Sched", []):
                         date_str = day.get("datePair", "")
@@ -138,12 +149,13 @@ class ScheduleTab(ft.Control):
                             continue
                         day_date = datetime.datetime.strptime(date_str, "%d.%m.%Y").date()
 
-                        # Фильтрация по выбранному периоду относительно выбранной даты
+                        # Фильтрация по выбранному периоду
                         if self.selected_period == "Сегодня" and day_date != current_date:
                             continue
                         elif self.selected_period == "Неделя" and not (0 <= (day_date - current_date).days < 7):
                             continue
-                        elif self.selected_period == "Месяц" and day_date.month != current_date.month:
+                        elif self.selected_period == "Месяц" and (
+                                day_date.month != current_date.month or day_date.year != current_date.year):
                             continue
 
                         day_card = self.create_day_card(day, current_date, tomorrow)
@@ -225,12 +237,22 @@ class ScheduleTab(ft.Control):
         self.update()
 
     async def check_schedule_at_5pm(self):
-        """Проверка расписания в 17:00"""
+        """Проверка расписания в 17:00 на изменения"""
         chelyabinsk_tz = pytz.timezone("Asia/Yekaterinburg")
+        previous_schedules = None  # Храним предыдущее расписание
+
         while True:
             now = datetime.datetime.now(chelyabinsk_tz)
             target = now.replace(hour=17, minute=0, second=0, microsecond=0)
             if now >= target:
                 target += datetime.timedelta(days=1)
+
             await asyncio.sleep((target - now).total_seconds())
-            await self.refresh_schedule()
+
+            # Получаем текущее расписание
+            current_schedules = await self.fetch_schedules()
+
+            # Сравниваем с предыдущим расписанием
+            if current_schedules != previous_schedules:
+                await self.display_schedules(current_schedules)
+                previous_schedules = current_schedules  # Обновляем предыдущее расписание
