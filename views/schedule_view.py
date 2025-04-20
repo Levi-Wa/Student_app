@@ -5,7 +5,7 @@ import httpx
 import pytz
 
 class ScheduleTab(ft.Control):
-    def __init__(self, page: ft.Page,selected_day:datetime.date = None):
+    def __init__(self, page: ft.Page, selected_day: datetime.date = None):
         super().__init__()
         self.page = page
         self.group_ids = []
@@ -59,7 +59,6 @@ class ScheduleTab(ft.Control):
     async def refresh_schedule(self):
         """Обновляем расписание в зависимости от выбранного периода"""
         self.set_loading(True)
-
         try:
             schedules = await self.fetch_schedules()  # Получаем данные расписания
             await self.display_schedules(schedules)  # Отображаем расписание
@@ -119,34 +118,42 @@ class ScheduleTab(ft.Control):
                 ft.Text(f"Группа ID: {group_id}", size=16, weight="bold")
             )
 
-            for month in schedule.get("Month", []):
-                for day in month.get("Sched", []):
-                    date_str = day.get("datePair", "")
-                    if not date_str:
-                        continue
-                    day_date = datetime.datetime.strptime(date_str, "%d.%m.%Y").date()
+            # Если выбран режим "Все", группируем записи по месяцам
+            if self.selected_period == "Все":
+                for month in schedule.get("Month", []):
+                    month_name = month.get("Name", "Неизвестный месяц")
+                    # Добавляем заголовок месяца
+                    group_column.controls.append(
+                        ft.Text(f"{month_name}", size=18, weight="bold", bgcolor="#e0e0e0")
+                    )
+                    for day in month.get("Sched", []):
+                        day_card = self.create_day_card(day, current_date, tomorrow)
+                        group_column.controls.append(day_card)
+            else:
+                # Для остальных режимов фильтруем по выбранной дате
+                for month in schedule.get("Month", []):
+                    for day in month.get("Sched", []):
+                        date_str = day.get("datePair", "")
+                        if not date_str:
+                            continue
+                        day_date = datetime.datetime.strptime(date_str, "%d.%m.%Y").date()
 
-                    # Фильтрация по выбранному периоду относительно выбранной даты
-                    if self.selected_period == "Сегодня" and day_date != current_date:
-                        continue
-                    elif self.selected_period == "Неделя" and not (0 <= (day_date - current_date).days < 7):
-                        continue
-                    elif self.selected_period == "Месяц" and day_date.month != current_date.month:
-                        continue
-                    elif self.selected_period == "Все":
-                        # Для режима "Все" можно не фильтровать записи по дате
-                        continue
+                        # Фильтрация по выбранному периоду относительно выбранной даты
+                        if self.selected_period == "Сегодня" and day_date != current_date:
+                            continue
+                        elif self.selected_period == "Неделя" and not (0 <= (day_date - current_date).days < 7):
+                            continue
+                        elif self.selected_period == "Месяц" and day_date.month != current_date.month:
+                            continue
 
-                    day_card = self.create_day_card(day, current_date, tomorrow)
-                    group_column.controls.append(day_card)
+                        day_card = self.create_day_card(day, current_date, tomorrow)
+                        group_column.controls.append(day_card)
 
             self.schedule_output.controls.append(
                 ft.Container(content=group_column, padding=10, bgcolor="#f9f9f9", border_radius=10, margin=5)
             )
 
         self.update()
-
-    # Перерисовываем интерфейс
 
     def create_day_card(self, day, current_date, tomorrow_date):
         """Создаем карточку для дня"""
@@ -185,10 +192,6 @@ class ScheduleTab(ft.Control):
         else:
             return None
 
-    def create_lessons(self, lessons_data):
-        """Создаем строки для уроков"""
-        return ft.Column([self.create_lesson_row(lesson) for lesson in lessons_data])
-
     def create_lesson_row(self, lesson):
         """Создаем строку для одного урока"""
         return ft.Container(
@@ -206,6 +209,9 @@ class ScheduleTab(ft.Control):
             border_radius=5,
             margin=3
         )
+    def create_lessons(self, lessons_data):
+        """Создаем строки для уроков"""
+        return ft.Column([self.create_lesson_row(lesson) for lesson in lessons_data])
 
     def show_error(self, message):
         """Показать ошибку"""
