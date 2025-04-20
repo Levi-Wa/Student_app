@@ -1,24 +1,25 @@
 import flet as ft
 import datetime
-from views.schedule_view import ScheduleTab  # Импортируем ваш ScheduleTab
+from views.schedule_view import ScheduleTab
+
 
 class App:
-    def __init__(self):
+    def __init__(self, page: ft.Page,):
+        self.page = page
         self.selected_groups = []
         self.current_course = None
         self.selected_day = datetime.date.today()
         self.course_dropdown = None
         self.groups_container = None
 
-    async def build(self):
-        # Инициализация интерфейса с выбором группы
-        await self.show_group_selector()
+        # Инициализация интерфейса
+        self.page.on_view_pop = self.on_view_pop
+        self.page.run_task(self.show_group_selector)
 
     async def show_group_selector(self):
-        # Очищаем текущую страницу перед отрисовкой нового интерфейса
+        """Показываем выбор группы"""
         self.page.clean()
 
-        # Выпадающий список для выбора курса
         self.course_dropdown = ft.Dropdown(
             label="Выберите курс",
             options=[ft.dropdown.Option(str(i)) for i in range(1, 5)],
@@ -26,17 +27,14 @@ class App:
             on_change=self.update_groups
         )
 
-        # Контейнер для групп
         self.groups_container = ft.Column()
 
-        # Кнопка подтверждения
         confirm_button = ft.ElevatedButton(
             "Продолжить",
             on_click=self.start_app_handler,
-            icon=ft.Icons.ARROW_FORWARD
+            icon=ft.Icons.ARROW_FORWARD_IOS_ROUNDED
         )
 
-        # Добавляем элементы на страницу
         self.page.add(
             ft.Column([
                 ft.Text("Выбор группы", size=24),
@@ -49,7 +47,7 @@ class App:
         self.page.update()
 
     def update_groups(self, e):
-        # Обновление списка групп в зависимости от выбранного курса
+        """Обновляем список групп при выборе курса"""
         self.current_course = self.course_dropdown.value
         groups = {
             "1": {"ИД-101": 26616, "ИД-102": 26617},
@@ -58,7 +56,6 @@ class App:
             "4": {"ИД-401": 26620}
         }.get(self.current_course, {})
 
-        # Обновляем список доступных групп
         self.groups_container.controls = [
             ft.Checkbox(
                 label=f"{name} (ID: {id_})",
@@ -69,14 +66,14 @@ class App:
         self.groups_container.update()
 
     def update_selected_groups(self, e):
-        # Добавление или удаление групп в выбранные
+        """Обновляем выбранные группы"""
         if e.control.value:
             self.selected_groups.append(e.control.data)
         else:
             self.selected_groups.remove(e.control.data)
 
     async def start_app_handler(self, e):
-        # Проверка, чтобы была выбрана хотя бы одна группа
+        """Обработчик кнопки продолжения"""
         if not self.selected_groups:
             self.page.snack_bar = ft.SnackBar(
                 content=ft.Text("Выберите хотя бы одну группу!"),
@@ -85,32 +82,56 @@ class App:
             self.page.update()
             return
 
-        # Переход к основному интерфейсу
         await self.show_main_interface()
 
     async def show_main_interface(self):
+        """Показываем основной интерфейс"""
         self.page.clean()
-        schedule_tab = ScheduleTab()  # Создаем без передачи page
+        schedule_tab = ScheduleTab(self.page)  # Передаем page в конструктор
         await schedule_tab.set_groups(self.selected_groups, self.selected_day)
 
         tabs = ft.Tabs(
             selected_index=1,
+            expand=True,  # 👈 ВАЖНО: добавляем expand
             tabs=[
-                ft.Tab(text="Заметки", content=ft.Text("Вкладка заметок")),
-                ft.Tab(text="Расписание", content=schedule_tab),
-                ft.Tab(text="Настройки", content=ft.Text("Вкладка настроек")),
+                ft.Tab(
+                    text="Заметки",
+                    content=ft.Container(
+                        content=ft.Text("Вкладка заметок"),
+                        expand=True
+                    )
+                ),
+                ft.Tab(
+                    text="Расписание",
+                    content=ft.Container(  # 👈 обязательно оборачиваем в Container + expand
+                        content=schedule_tab.build(),
+                        expand=True
+                    )
+                ),
+                ft.Tab(
+                    text="Настройки",
+                    content=ft.Container(
+                        content=ft.Text("Вкладка настроек"),
+                        expand=True
+                    )
+                ),
             ]
         )
+
         self.page.add(tabs)
+        self.page.update()
+
+    async def on_view_pop(self, view):
+        """Обработчик возврата на предыдущий экран"""
+        await self.show_group_selector()
 
 
-# Основная функция для запуска приложения
 async def main(page: ft.Page):
+    """Точка входа в приложение"""
     page.title = "Студенческое приложение"
     page.window_width = 400
     page.window_height = 800
     app = App(page)
-    await app.build()
 
-# Запуск приложения
+
 ft.app(target=main)
