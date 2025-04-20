@@ -13,6 +13,7 @@ class ScheduleTab(ft.Control):
         self.selected_period = "Месяц"
         self.loading = False
 
+        # Dropdown для выбора периода
         self.period_dropdown = ft.Dropdown(
             options=[
                 ft.dropdown.Option("Сегодня"),
@@ -21,7 +22,7 @@ class ScheduleTab(ft.Control):
                 ft.dropdown.Option("Все")
             ],
             value=self.selected_period,
-            on_change=self.on_period_change,
+            on_change=self.on_period_change,  # Смена периода
             width=150,
             border_color="#2196F3",
             focused_border_color="#1976D2",
@@ -29,45 +30,47 @@ class ScheduleTab(ft.Control):
             bgcolor="#E3F2FD"
         )
 
+        # Основной контейнер для расписания
         self.schedule_output = ft.Column(scroll=ft.ScrollMode.ALWAYS, expand=True)
         self.loading_indicator = ft.ProgressBar(visible=False)
         self.error_display = ft.Text("", color="red", visible=False)
 
     def build(self):
         return ft.Column([
-            ft.Row([
-                ft.Text("\ud83d\uddd5\ufe0f Расписание", size=20, weight="bold"),
-                self.period_dropdown
-            ]),
+            ft.Row([ft.Text("\ud83d\uddd5\ufe0f Расписание", size=20, weight="bold"), self.period_dropdown]),
             self.loading_indicator,
             self.error_display,
             ft.Container(content=self.schedule_output, expand=True)
         ], expand=True)
 
     async def on_period_change(self, e):
+        """Обработчик изменения выбранного периода"""
         self.selected_period = e.control.value
-        await self.refresh_schedule()
+        await self.refresh_schedule()  # Обновление расписания после изменения периода
         self.update()
 
     async def refresh_schedule(self):
+        """Метод для обновления расписания"""
         self.set_loading(True)
         try:
             schedules = await self.fetch_schedules()
             if any("error" in schedule for schedule in schedules):
                 self.show_error("Ошибка при получении расписания.")
                 return
-            await self.display_schedules(schedules)
+            await self.display_schedules(schedules)  # Отображаем расписание
         except Exception as ex:
             self.show_error(f"Ошибка загрузки: {str(ex)}")
         finally:
             self.set_loading(False)
             self.update()
 
-    async def set_groups(self, group_ids):
+    async def set_groups(self, group_ids: object) -> None:
+        """Устанавливаем ID групп и обновляем расписание"""
         self.group_ids = group_ids
         await self.refresh_schedule()
 
     async def fetch_schedules(self):
+        """Получение расписания для всех групп"""
         async with httpx.AsyncClient() as client:
             tasks = []
             for group_id in self.group_ids:
@@ -76,6 +79,7 @@ class ScheduleTab(ft.Control):
             return await asyncio.gather(*tasks)
 
     async def fetch_group_schedule(self, client, url):
+        """Загрузка расписания для конкретной группы"""
         try:
             response = await client.get(url, timeout=10.0)
             response.raise_for_status()
@@ -89,6 +93,7 @@ class ScheduleTab(ft.Control):
             return {"error": str(ex)}
 
     async def display_schedules(self, schedules):
+        """Отображение расписания на основе выбранного периода"""
         self.schedule_output.controls.clear()
         current_date = datetime.date.today()
         tomorrow = current_date + datetime.timedelta(days=1)
@@ -107,6 +112,7 @@ class ScheduleTab(ft.Control):
                 ft.Text(f"Группа ID: {group_id}", size=16, weight="bold")
             )
 
+            # Фильтруем расписание в зависимости от выбранного периода
             for month in schedule.get("Month", []):
                 for day in month.get("Sched", []):
                     date_str = day.get("datePair", "")
@@ -115,12 +121,16 @@ class ScheduleTab(ft.Control):
 
                     day_date = datetime.datetime.strptime(date_str, "%d.%m.%Y").date()
 
+                    # Фильтруем по выбранному периоду
                     if self.selected_period == "Сегодня" and day_date != current_date:
                         continue
                     elif self.selected_period == "Неделя" and not (0 <= (day_date - current_date).days < 7):
                         continue
                     elif self.selected_period == "Месяц" and (day_date.month != current_date.month or day_date.year != current_date.year):
                         continue
+                    elif self.selected_period == "Все":
+                        # Отображаем все расписания
+                        pass
 
                     highlight_current_pair = (self.selected_period == "Сегодня")
                     force_blue = (self.selected_period == "Неделя" and day_date > current_date)
@@ -135,6 +145,7 @@ class ScheduleTab(ft.Control):
 
         self.update()
 
+        # Прокрутка к текущей дате
         for card in all_day_cards:
             if isinstance(card.content.controls[0], ft.Text):
                 text = card.content.controls[0].value
@@ -155,10 +166,7 @@ class ScheduleTab(ft.Control):
             lessons = self.create_lessons(day.get("mainSchedule", []), day_date, highlight_current_pair)
 
             return ft.Container(
-                content=ft.Column([
-                    ft.Text(f"\ud83d\uddd5\ufe0f {date_str} ({day_week})", weight="bold", color=color),
-                    lessons
-                ]),
+                content=ft.Column([ft.Text(f"\ud83d\uddd5\ufe0f {date_str} ({day_week})", weight="bold", color=color), lessons]),
                 padding=10,
                 margin=5,
                 bgcolor="#ffffff",
@@ -202,15 +210,12 @@ class ScheduleTab(ft.Control):
 
     def create_lesson_row(self, lesson, highlight=False):
         return ft.Container(
-            content=ft.Row([
-                ft.Text(lesson.get("TimeStart", ""), width=80),
-                ft.Column([
-                    ft.Text(lesson.get("SubjName", ""), weight="bold"),
-                    ft.Text(lesson.get("LoadKindSN", ""), size=12, color="grey")
-                ], expand=True),
-                ft.Text(lesson.get("Aud", ""), width=80),
-                ft.Text(lesson.get("FIO", ""), width=180, size=12)
-            ], spacing=10),
+            content=ft.Row([ft.Text(lesson.get("TimeStart", ""), width=80),
+                            ft.Column([ft.Text(lesson.get("SubjName", ""), weight="bold"),
+                                      ft.Text(lesson.get("LoadKindSN", ""), size=12, color="grey")], expand=True),
+                            ft.Text(lesson.get("Aud", ""), width=80),
+                            ft.Text(lesson.get("FIO", ""), width=180, size=12)
+                            ], spacing=10),
             padding=5,
             border=ft.border.all(1, "#4CAF50") if highlight else ft.border.all(0.5, "#ccc"),
             bgcolor="#f1fff1" if highlight else "#ffffff",
@@ -219,6 +224,7 @@ class ScheduleTab(ft.Control):
         )
 
     def set_loading(self, loading: bool):
+        """Метод отображения индикатора загрузки"""
         self.loading = loading
         self.loading_indicator.visible = loading
         self.error_display.visible = False
@@ -226,15 +232,18 @@ class ScheduleTab(ft.Control):
         self.update()
 
     def show_error(self, message):
+        """Метод отображения ошибок"""
         self.error_display.value = message
         self.error_display.visible = True
         self.update()
 
     def show_message(self, message):
+        """Метод отображения сообщений"""
         self.schedule_output.controls = [ft.Text(message)]
         self.update()
 
     async def check_schedule_at_5pm(self):
+        """Проверка расписания ежедневно в 17:00"""
         chelyabinsk_tz = pytz.timezone("Asia/Yekaterinburg")
         previous_schedules = None
 

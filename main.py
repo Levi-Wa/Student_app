@@ -87,7 +87,7 @@ class App:
         """Показываем основной интерфейс"""
         self.page.clean()
         schedule_tab = ScheduleTab(self.page)  # Передаем page в конструктор
-        await schedule_tab.set_groups(self.selected_groups)
+        await schedule_tab.set_groups(self.selected_groups,)
 
         tabs = ft.Tabs(
             selected_index=1,
