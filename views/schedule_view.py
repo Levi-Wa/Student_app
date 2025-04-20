@@ -4,22 +4,27 @@ import asyncio
 import httpx
 import pytz
 
-class ScheduleTab(ft.Control):
-    def __init__(self, page: ft.Page):
+class ScheduleTab(ft.UserControl):
+    def __init__(self):
         super().__init__()
-        self.page = page  # Атрибут для страницы
-        self.group_ids = []  # Начальные значения для групп
-        self.selected_day = datetime.date.today()  # Начальный день
+        self.group_ids = []
+        self.selected_day = datetime.date.today()
         self.selected_period = "Неделя"
         self.loading = False
+        self.content = self.build()
+
+    async def did_mount(self):
+        self.page.on_view_pop = self.on_tab_ready
         self.page.run_task(self.check_schedule_at_5pm)
 
-    def _get_control_name(self):
-            return "scheduletab"
-    
+    async def set_groups(self, group_ids, selected_day):
+        self.group_ids = group_ids
+        self.selected_day = selected_day
+        await self.refresh_schedule()
+
 
     def build(self):
-        # Ожидаемый код для построения интерфейса
+        # Инициализация интерфейса
         self.period_dropdown = ft.Dropdown(
             options=[
                 ft.dropdown.Option("Сегодня"),
@@ -40,6 +45,7 @@ class ScheduleTab(ft.Control):
             "Обновить",
             icon=ft.icons.REFRESH,
             on_click=lambda e: asyncio.create_task(self.refresh_schedule())
+            # Используем create_task для асинхронного вызова
         )
 
         self.schedule_output = ft.Column(
@@ -47,26 +53,40 @@ class ScheduleTab(ft.Control):
             expand=True
         )
 
+        # Инициализация индикатора загрузки
         self.loading_indicator = ft.ProgressBar(visible=False)
+
+        # Инициализация отображения ошибок
         self.error_display = ft.Text("", color="red", visible=False)
 
+        # Возвращаем основной интерфейс
         return ft.Column([
             ft.Row([
                 ft.Text("Расписание", size=20),
                 self.period_dropdown,
                 self.refresh_button
             ]),
-            self.loading_indicator,
+            self.loading_indicator,  # Теперь индикатор загрузки добавлен в интерфейс
             self.error_display,
             self.schedule_output
         ], expand=True)
 
-    async def on_period_change(self, e):
-        self.selected_period = e.control.value
+    async def on_tab_ready(self, e):
+        await asyncio.sleep(0.1)  # Подождать, пока build() отработает
         await self.refresh_schedule()
+        await self.check_schedule_at_5pm()
+
+    def set_loading(self, loading: bool):
+        self.loading = loading
+        if not hasattr(self, "error_display") or not hasattr(self, "schedule_output"):# Проверка, если атрибут существует
+            return
+        self.loading_indicator.visible = loading
+        self.error_display.visible = False
+        self.schedule_output.visible = not loading
+        self.page.update()  # Обновляем страницу после изменения состояния загрузки
 
     async def refresh_schedule(self):
-        if not self.group_ids:
+        if hasattr(self, "error_display") and not self.group_ids:
             self.show_message("Выберите группы в настройках")
             return
 
@@ -79,13 +99,6 @@ class ScheduleTab(ft.Control):
             self.show_error(f"Ошибка загрузки: {str(ex)}")
         finally:
             self.set_loading(False)
-
-    def set_loading(self, loading: bool):
-        self.loading = loading
-        self.loading_indicator.visible = loading
-        self.error_display.visible = False
-        self.schedule_output.visible = not loading
-        self.update()
 
     async def fetch_schedules(self):
         async with httpx.AsyncClient() as client:
@@ -123,7 +136,7 @@ class ScheduleTab(ft.Control):
             group_container = self.create_group_container(group_id, schedule, current_date, tomorrow_date)
             self.schedule_output.controls.append(group_container)
 
-        await self.update_async()
+        self.update()
 
     def create_group_container(self, group_id, schedule, current_date, tomorrow_date):
         group_column = ft.Column(expand=True)
@@ -137,14 +150,17 @@ class ScheduleTab(ft.Control):
                 if not date_str:
                     continue
                 day_date = datetime.datetime.strptime(date_str, "%d.%m.%Y").date()
-                
+
                 # Фильтрация по выбранному периоду
                 if self.selected_period == "Сегодня" and day_date != current_date:
                     continue
                 elif self.selected_period == "Неделя" and (day_date - current_date).days > 7:
                     continue
-                # ... аналогично для других периодов
-                
+                elif self.selected_period == "Месяц" and not (current_date.month == day_date.month):
+                    continue
+                elif self.selected_period == "Все" and day_date < current_date:
+                    continue
+
                 day_card = self.create_day_card(day, current_date, tomorrow_date)
                 if day_card:
                     group_column.controls.append(day_card)
@@ -170,10 +186,7 @@ class ScheduleTab(ft.Control):
             lessons = self.create_lessons(day.get("mainSchedule", []))
 
             return ft.Container(
-                content=ft.Column([
-                    ft.Text(f"📅 {date_str} ({day_week})", weight="bold", color=color),
-                    lessons
-                ]),
+                content=ft.Column([ft.Text(f"📅 {date_str} ({day_week})", weight="bold", color=color), lessons]),
                 padding=10,
                 margin=5,
                 expand=True
@@ -191,9 +204,7 @@ class ScheduleTab(ft.Control):
         return None
 
     def create_lessons(self, lessons_data):
-        return ft.Column([
-            self.create_lesson_row(lesson) for lesson in lessons_data
-        ])
+        return ft.Column([self.create_lesson_row(lesson) for lesson in lessons_data])
 
     def create_lesson_row(self, lesson):
         return ft.Container(
@@ -212,25 +223,14 @@ class ScheduleTab(ft.Control):
         )
 
     def show_error(self, message):
-        self.error_display.value = message
-        self.error_display.visible = True
+        if hasattr(self, "error_display"):
+            self.error_display.value = message
+            self.error_display.visible = True
         self.update()
 
     def show_message(self, message):
         self.schedule_output.controls = [ft.Text(message)]
         self.update()
-
-    def set_loading(self, loading: bool):
-        self.loading = loading
-        self.loading_indicator.visible = loading
-        self.error_display.visible = False
-        self.schedule_output.visible = not loading
-        self.page.update()  # Меняем self.update() на page.update
-
-    async def set_groups(self, group_ids, selected_day):
-        self.group_ids = group_ids
-        self.selected_day = selected_day
-        await self.refresh_schedule()
 
     async def check_schedule_at_5pm(self):
         chelyabinsk_tz = pytz.timezone('Asia/Yekaterinburg')

@@ -1,10 +1,9 @@
 import flet as ft
 import datetime
-from views.schedule_view import ScheduleTab
+from views.schedule_view import ScheduleTab  # Импортируем ваш ScheduleTab
 
 class App:
-    def __init__(self, page: ft.Page):
-        self.page = page
+    def __init__(self):
         self.selected_groups = []
         self.current_course = None
         self.selected_day = datetime.date.today()
@@ -34,7 +33,7 @@ class App:
         confirm_button = ft.ElevatedButton(
             "Продолжить",
             on_click=self.start_app_handler,
-            icon=ft.Icons.ARROW_FORWARD  # исправлено на Icons с большой буквы
+            icon=ft.Icons.ARROW_FORWARD
         )
 
         # Добавляем элементы на страницу
@@ -90,35 +89,29 @@ class App:
         await self.show_main_interface()
 
     async def show_main_interface(self):
-        """Показывает основной интерфейс с вкладками"""
         self.page.clean()
-
-        # Создаем вкладку расписания
-        schedule_tab = ScheduleTab(self.page)  # Передаем только страницу
-        schedule_tab.set_groups(self.selected_groups, self.selected_day)  # Устанавливаем группы и выбранный день
+        schedule_tab = ScheduleTab()  # Создаем без передачи page
+        await schedule_tab.set_groups(self.selected_groups, self.selected_day)
 
         tabs = ft.Tabs(
-            selected_index=0,
+            selected_index=1,
             tabs=[
                 ft.Tab(text="Заметки", content=ft.Text("Вкладка заметок")),
                 ft.Tab(text="Расписание", content=schedule_tab),
                 ft.Tab(text="Настройки", content=ft.Text("Вкладка настроек")),
             ]
         )
-
         self.page.add(tabs)
-        self.page.update()
-
-        # Устанавливаем группы после добавления на страницу
-        await schedule_tab.set_groups(self.selected_groups, self.selected_day)
 
 
-
+# Основная функция для запуска приложения
 async def main(page: ft.Page):
+    print(ft.__version__)
     page.title = "Студенческое приложение"
     page.window_width = 400
     page.window_height = 800
     app = App(page)
     await app.build()
 
+# Запуск приложения
 ft.app(target=main)
