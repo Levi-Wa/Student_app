@@ -106,7 +106,6 @@ class App:
 
 # Основная функция для запуска приложения
 async def main(page: ft.Page):
-    print(ft.__version__)
     page.title = "Студенческое приложение"
     page.window_width = 400
     page.window_height = 800
