@@ -1,6 +1,10 @@
 import flet as ft
 import datetime
+import json
+import os
 from views.schedule_view import ScheduleTab
+from views.notes_view import NotesView
+from views.settings_view import SettingsView
 
 class App:
     def __init__(self, page: ft.Page):
@@ -10,10 +14,47 @@ class App:
         self.selected_day = datetime.date.today()
         self.course_dropdown = None
         self.groups_container = None
+        self.settings_file = "settings.json"
+        self.settings = {
+            "theme": "light",
+            "schedule_notifications": True,
+            "expiry_notification_days": 3
+        }
+        self.schedule_tab = None  # Добавляем атрибут для хранения schedule_tab
 
-        # Инициализация интерфейса
+        self.load_settings()
+        self.apply_theme()
+
         self.page.on_view_pop = self.on_view_pop
-        self.page.run_task(self.show_group_selector)
+        if self.selected_groups:
+            self.page.run_task(self.show_main_interface)
+        else:
+            self.page.run_task(self.show_group_selector)
+
+    def load_settings(self):
+        """Загрузка настроек из файла"""
+        if os.path.exists(self.settings_file):
+            with open(self.settings_file, "r", encoding="utf-8") as f:
+                loaded_settings = json.load(f)
+                self.selected_groups = loaded_settings.get("selected_groups", [])
+                self.current_course = loaded_settings.get("current_course", None)
+                self.settings.update(loaded_settings.get("settings", {}))
+
+    def save_settings(self):
+        """Сохранение настроек в файл"""
+        settings = {
+            "selected_groups": self.selected_groups,
+            "current_course": self.current_course,
+            "settings": self.settings
+        }
+        with open(self.settings_file, "w", encoding="utf-8") as f:
+            json.dump(settings, f, ensure_ascii=False, indent=4)
+
+    def apply_theme(self):
+        """Применение темы"""
+        theme_mode = self.settings.get("theme", "light")
+        self.page.theme_mode = ft.ThemeMode.LIGHT if theme_mode == "light" else ft.ThemeMode.DARK
+        self.page.update()
 
     async def show_group_selector(self):
         """Показываем выбор группы"""
@@ -81,49 +122,70 @@ class App:
             self.page.update()
             return
 
+        self.save_settings()
         await self.show_main_interface()
 
     async def show_main_interface(self):
         """Показываем основной интерфейс"""
         self.page.clean()
 
-        schedule_tab = ScheduleTab(self.page)  # Передаем page в конструктор
-        await schedule_tab.set_groups(self.selected_groups)
+        self.schedule_tab = ScheduleTab(self.page, self)
+        await self.schedule_tab.set_groups(self.selected_groups)
+
+        notes_view = NotesView(self.page, self.schedule_tab, self)
+        settings_view = SettingsView(self.page, self)
 
         tabs = ft.Tabs(
             selected_index=1,
-            expand=True,  # 👈 ВАЖНО: добавляем expand
+            expand=True,
             tabs=[
                 ft.Tab(
                     text="Заметки",
+                    icon=ft.Icons.NOTE,
                     content=ft.Container(
-                        content=ft.Text("Вкладка заметок"),
-                        expand=True
+                        content=notes_view.ui_content,
+                        expand=True,
+                        padding=10
                     )
                 ),
                 ft.Tab(
                     text="Расписание",
-                    content=ft.Container(  # 👈 обязательно оборачиваем в Container + expand
-                        content=schedule_tab.build(),
-                        expand=True
+                    icon=ft.Icons.BOOK,
+                    content=ft.Container(
+                        content=self.schedule_tab.build(),
+                        expand=True,
+                        padding=10
                     )
                 ),
                 ft.Tab(
                     text="Настройки",
+                    icon=ft.Icons.SETTINGS,
                     content=ft.Container(
-                        content=ft.Text("<UNK> <UNK>"),
-                        expand=True
+                        content=settings_view.build(),
+                        expand=True,
+                        padding=10
                     )
                 ),
             ]
         )
 
+        self.page.app_bar = ft.AppBar(
+            title=ft.Text("Студенческое приложение"),
+            bgcolor=ft.Colors.ON_SURFACE_VARIANT,
+            center_title=True
+        )
+
         self.page.add(tabs)
         self.page.update()
 
+        await self.schedule_tab.load_schedules()
+
     async def on_view_pop(self, view):
         """Обработчик возврата на предыдущий экран"""
-        await self.show_group_selector()
+        if self.selected_groups:
+            await self.show_main_interface()
+        else:
+            await self.show_group_selector()
 
 
 async def main(page: ft.Page):
