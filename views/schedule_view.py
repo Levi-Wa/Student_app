@@ -3,6 +3,8 @@ import datetime
 import asyncio
 import httpx
 import pytz
+import logging
+
 
 class ScheduleTab(ft.Control):
     def __init__(self, page: ft.Page):
@@ -10,7 +12,7 @@ class ScheduleTab(ft.Control):
         self.page = page
         self.group_ids = []
         self.selected_day = datetime.date.today()
-        self.selected_period = "Месяц"
+        self.selected_period = "Неделя"
         self.loading = False
 
         # Dropdown для выбора периода
@@ -35,19 +37,16 @@ class ScheduleTab(ft.Control):
         self.loading_indicator = ft.ProgressBar(visible=False)
         self.error_display = ft.Text("", color="red", visible=False)
 
+        logging.basicConfig(filename="schedule.log", level=logging.DEBUG)
+        logging.debug(f"Period changed to: {self.selected_period}")
+
     def build(self):
         return ft.Column([
             ft.Row([ft.Text("\ud83d\uddd5\ufe0f Расписание", size=20, weight="bold"), self.period_dropdown]),
             self.loading_indicator,
             self.error_display,
-            ft.Container(content=self.schedule_output, expand=True)
+            ft.Container(content=self.schedule_output, expand=True, visible=True)  # Убедитесь, что visible=True
         ], expand=True)
-
-    async def on_period_change(self, e):
-        """Обработчик изменения выбранного периода"""
-        self.selected_period = e.control.value
-        await self.refresh_schedule()  # Обновление расписания после изменения периода
-        self.update()
 
     async def refresh_schedule(self):
         """Метод для обновления расписания"""
@@ -70,13 +69,16 @@ class ScheduleTab(ft.Control):
         await self.refresh_schedule()
 
     async def fetch_schedules(self):
-        """Получение расписания для всех групп"""
         async with httpx.AsyncClient() as client:
             tasks = []
             for group_id in self.group_ids:
                 url = f"https://api.ursei.su/public/schedule/rest/GetGsSched?grpid={group_id}"
                 tasks.append(self.fetch_group_schedule(client, url))
-            return await asyncio.gather(*tasks)
+            results = await asyncio.gather(*tasks)
+            print("API response dates:",
+                  [day["datePair"] for schedule in results for month in schedule.get("Month", []) for day in
+                   month.get("Sched", [])])  # Отладка
+            return results
 
     async def fetch_group_schedule(self, client, url):
         """Загрузка расписания для конкретной группы"""
@@ -92,67 +94,12 @@ class ScheduleTab(ft.Control):
         except Exception as ex:
             return {"error": str(ex)}
 
-    async def display_schedules(self, schedules):
-        """Отображение расписания на основе выбранного периода"""
-        self.schedule_output.controls.clear()
-        current_date = datetime.date.today()
-        tomorrow = current_date + datetime.timedelta(days=1)
-
-        all_day_cards = []
-
-        for group_id, schedule in zip(self.group_ids, schedules):
-            if "error" in schedule:
-                self.schedule_output.controls.append(
-                    ft.Text(f"Ошибка для группы {group_id}: {schedule['error']}", color="red")
-                )
-                continue
-
-            group_column = ft.Column()
-            group_column.controls.append(
-                ft.Text(f"Группа ID: {group_id}", size=16, weight="bold")
-            )
-
-            # Фильтруем расписание в зависимости от выбранного периода
-            for month in schedule.get("Month", []):
-                for day in month.get("Sched", []):
-                    date_str = day.get("datePair", "")
-                    if not date_str:
-                        continue
-
-                    day_date = datetime.datetime.strptime(date_str, "%d.%m.%Y").date()
-
-                    # Фильтруем по выбранному периоду
-                    if self.selected_period == "Сегодня" and day_date != current_date:
-                        continue
-                    elif self.selected_period == "Неделя" and not (0 <= (day_date - current_date).days < 7):
-                        continue
-                    elif self.selected_period == "Месяц" and (day_date.month != current_date.month or day_date.year != current_date.year):
-                        continue
-                    elif self.selected_period == "Все":
-                        # Отображаем все расписания
-                        pass
-
-                    highlight_current_pair = (self.selected_period == "Сегодня")
-                    force_blue = (self.selected_period == "Неделя" and day_date > current_date)
-
-                    day_card = self.create_day_card(day, current_date, tomorrow, highlight_current_pair, force_blue)
-                    all_day_cards.append(day_card)
-                    group_column.controls.append(day_card)
-
-            self.schedule_output.controls.append(
-                ft.Container(content=group_column, padding=10, bgcolor="#f9f9f9", border_radius=10, margin=5)
-            )
-
-        self.update()
-
-        # Прокрутка к текущей дате
-        for card in all_day_cards:
-            if isinstance(card.content.controls[0], ft.Text):
-                text = card.content.controls[0].value
-                if str(current_date.strftime("%d.%m.%Y")) in text:
-                    await asyncio.sleep(0.2)
-                    self.page.scroll_to(card.offset.y, duration=300)
-                    break
+    async def on_period_change(self, e):
+        """Обработчик изменения выбранного периода"""
+        self.selected_period = e.control.value
+        print(f"Period changed to: {self.selected_period}")  # Отладка
+        await self.refresh_schedule()
+        self.page.update()  # Обновляем всю страницу
 
     def create_day_card(self, day, current_date, tomorrow_date, highlight_current_pair=False, force_blue=False):
         try:
@@ -166,7 +113,9 @@ class ScheduleTab(ft.Control):
             lessons = self.create_lessons(day.get("mainSchedule", []), day_date, highlight_current_pair)
 
             return ft.Container(
-                content=ft.Column([ft.Text(f"\ud83d\uddd5\ufe0f {date_str} ({day_week})", weight="bold", color=color), lessons]),
+                key=f"date_{date_str}",  # Уникальный ключ для карточки
+                content=ft.Column(
+                    [ft.Text(f"\ud83d\uddd5\ufe0f {date_str} ({day_week})", weight="bold", color=color), lessons]),
                 padding=10,
                 margin=5,
                 bgcolor="#ffffff",
@@ -176,6 +125,117 @@ class ScheduleTab(ft.Control):
         except Exception as ex:
             return ft.Text(f"Ошибка дня: {str(ex)}", color="red")
 
+    async def display_schedules(self, schedules):
+        """Отображение расписания на основе выбранного периода"""
+        print(f"Clearing schedule_output, current controls: {len(self.schedule_output.controls)}")  # Отладка
+        self.schedule_output.controls.clear()
+        current_date = datetime.date.today()
+        tomorrow = current_date + datetime.timedelta(days=1)
+        all_day_cards = []
+
+        print(f"Displaying schedules for period: {self.selected_period}")  # Отладка
+
+        for group_id, schedule in zip(self.group_ids, schedules):
+            if "error" in schedule:
+                self.schedule_output.controls.append(
+                    ft.Text(f"Ошибка для группы {group_id}: {schedule['error']}", color="red")
+                )
+                continue
+
+            group_column = ft.Column()
+            group_column.controls.append(
+                ft.Text(f"Группа ID: {group_id}", size=16, weight="bold")
+            )
+
+            if not schedule.get("Month"):
+                self.schedule_output.controls.append(
+                    ft.Text(f"Нет данных для группы {group_id}", color="orange")
+                )
+                continue
+
+            for month in schedule.get("Month", []):
+                for day in month.get("Sched", []):
+                    date_str = day.get("datePair", "")
+                    if not date_str:
+                        print(f"Skipping empty date for group {group_id}")  # Отладка
+                        continue
+
+                    try:
+                        day_date = datetime.datetime.strptime(date_str, "%d.%m.%Y").date()
+                    except ValueError as ve:
+                        print(f"Invalid date format: {date_str}, error: {ve}")  # Отладка
+                        continue
+
+                    # Фильтрация по периоду
+                    if self.selected_period == "Сегодня" and day_date != current_date:
+                        continue
+                    elif self.selected_period == "Неделя" and not (0 <= (day_date - current_date).days < 7):
+                        continue
+                    elif self.selected_period == "Месяц" and (
+                            day_date.month != current_date.month or day_date.year != current_date.year):
+                        continue
+                    elif self.selected_period == "Все":
+                        pass
+
+                    print(f"Adding day: {date_str} for period: {self.selected_period}")  # Отладка
+
+                    highlight_current_pair = (self.selected_period == "Сегодня")
+                    force_blue = (self.selected_period == "Неделя" and day_date == tomorrow)
+
+                    day_card = self.create_day_card(day, current_date, tomorrow, highlight_current_pair, force_blue)
+                    all_day_cards.append((day_card, date_str))  # Сохраняем карточку и дату
+                    group_column.controls.append(day_card)
+
+            if group_column.controls:
+                self.schedule_output.controls.append(
+                    ft.Container(content=group_column, padding=10, bgcolor="#f9f9f9", border_radius=10, margin=5)
+                )
+            else:
+                self.schedule_output.controls.append(
+                    ft.Text(f"Нет расписания для группы {group_id} в выбранном периоде", color="orange")
+                )
+
+        if not self.schedule_output.controls:
+            self.schedule_output.controls.append(
+                ft.Text("Нет расписания для выбранного периода", color="orange")
+            )
+
+        print(f"Total cards added: {len(all_day_cards)}")  # Отладка
+        print(f"Schedule output controls after update: {len(self.schedule_output.controls)}")  # Отладка
+
+        self.schedule_output.update()
+        self.page.update()
+
+        # Прокрутка к текущей дате
+        print(f"Attempting to scroll to current date: {current_date.strftime('%d.%m.%Y')}")  # Отладка
+        if all_day_cards:
+            current_date_str = current_date.strftime("%d.%m.%Y")
+            current_card_key = f"date_{current_date_str}"
+            try:
+                # Даём время на рендеринг
+                await asyncio.sleep(0.5)
+                self.page.update()
+                # Прокручиваем к элементу по ключу
+                print(f"Scrolling to card with key: {current_card_key}")  # Отладка
+                self.page.scroll_to(key=current_card_key, duration=1000)
+            except AttributeError as e:
+                print(f"Error: scroll_to with key not supported, falling back to index-based scrolling: {e}")  # Отладка
+                # Fallback: прокрутка по индексу карточки
+                card_index = next((i for i, (_, date) in enumerate(all_day_cards) if date == current_date_str), -1)
+                if card_index >= 0:
+                    estimated_offset = card_index * 150 + 50  # Высота карточки 150 + 50 для заголовка/отступов
+                    print(f"Scrolling to estimated offset: {estimated_offset}")  # Отладка
+                    self.page.scroll_to(offset=estimated_offset, duration=1000)
+                else:
+                    print("Current date card not found, scrolling to top")  # Отладка
+                    self.page.scroll_to(offset=0, duration=1000)
+            except Exception as e:
+                print(f"Error during scroll attempt: {e}")  # Отладка
+                self.page.scroll_to(offset=0, duration=1000)
+        else:
+            print("No cards to scroll to, scrolling to top")  # Отладка
+            self.page.scroll_to(offset=0, duration=1000)
+
     def get_date_color(self, day_date, current_date, tomorrow_date):
         if day_date == current_date:
             return "green"
@@ -184,7 +244,7 @@ class ScheduleTab(ft.Control):
         elif day_date < current_date:
             return "grey"
         else:
-            return None
+            return "black"
 
     def create_lessons(self, lessons_data, lesson_date=None, highlight_current=False):
         rows = []
@@ -224,12 +284,12 @@ class ScheduleTab(ft.Control):
         )
 
     def set_loading(self, loading: bool):
-        """Метод отображения индикатора загрузки"""
         self.loading = loading
         self.loading_indicator.visible = loading
         self.error_display.visible = False
         self.schedule_output.visible = not loading
-        self.update()
+        print(f"Schedule output visible: {self.schedule_output.visible}")  # Отладка
+        self.page.update()
 
     def show_error(self, message):
         """Метод отображения ошибок"""

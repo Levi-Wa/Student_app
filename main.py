@@ -3,7 +3,7 @@ import datetime
 from views.schedule_view import ScheduleTab
 
 class App:
-    def __init__(self, page: ft.Page,):
+    def __init__(self, page: ft.Page):
         self.page = page
         self.selected_groups = []
         self.current_course = None
@@ -86,8 +86,9 @@ class App:
     async def show_main_interface(self):
         """Показываем основной интерфейс"""
         self.page.clean()
+
         schedule_tab = ScheduleTab(self.page)  # Передаем page в конструктор
-        await schedule_tab.set_groups(self.selected_groups,)
+        await schedule_tab.set_groups(self.selected_groups)
 
         tabs = ft.Tabs(
             selected_index=1,
