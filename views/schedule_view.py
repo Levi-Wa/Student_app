@@ -30,10 +30,14 @@ class ScheduleTab:
         self.selected_period = "Сегодня"
         self.schedule_output = ft.Column(scroll=ft.ScrollMode.AUTO)
         self._cached_disciplines = None  # Кэш для дисциплин
+        self._cached_disciplines_timestamp = 0
 
     def get_unique_disciplines(self) -> List[str]:
-        if self._cached_disciplines is not None:
+        """Получаем уникальные дисциплины из расписания"""
+        # Проверяем, актуален ли кэш
+        if self._cached_disciplines is not None and self._cached_disciplines_timestamp == id(self.schedules):
             return self._cached_disciplines
+
         disciplines = set()
         for schedule in self.schedules:
             if "error" in schedule:
@@ -45,6 +49,8 @@ class ScheduleTab:
                         if subj_name:
                             disciplines.add(subj_name)
         self._cached_disciplines = sorted(list(disciplines))
+        self._cached_disciplines_timestamp = id(self.schedules)
+        print(f"Extracted disciplines: {self._cached_disciplines}")
         return self._cached_disciplines
 
     def load_local_schedules(self) -> List[Dict]:
@@ -335,20 +341,6 @@ class ScheduleTab:
             print("Checking for schedule changes...")
             await self.refresh_schedules()
 
-    def get_unique_disciplines(self) -> List[str]:
-        """Получаем уникальные дисциплины из расписания"""
-        disciplines = set()
-        for schedule in self.schedules:
-            if "error" in schedule:
-                continue
-            for month in schedule.get("Month", []):
-                for day in month.get("Sched", []):
-                    for lesson in day.get("mainSchedule", []):
-                        subj_name = lesson.get("SubjName")
-                        if subj_name:
-                            disciplines.add(subj_name)
-        return sorted(list(disciplines))
-
     def get_next_lesson_date(self, discipline: str, mode: str) -> datetime.date:
         """Определение даты следующего занятия по дисциплине"""
         current_date = datetime.date.today()
@@ -481,9 +473,13 @@ class ScheduleTab:
 
         today = datetime.datetime.now()
         today_date = today.date()
+        tomorrow_date = today_date + datetime.timedelta(days=1)  # Завтра
         current_time = today.time()
         start_of_week = today_date - datetime.timedelta(days=today_date.weekday())
         end_of_week = start_of_week + datetime.timedelta(days=6)
+        start_of_month = today_date.replace(day=1)
+        end_of_month = (today_date.replace(day=1) + datetime.timedelta(days=32)).replace(day=1) - datetime.timedelta(
+            days=1)
 
         cards = []
         for schedule in self.schedules:
@@ -504,8 +500,7 @@ class ScheduleTab:
                         continue
                     elif self.selected_period == "Неделя" and (day_date < start_of_week or day_date > end_of_week):
                         continue
-                    elif self.selected_period == "Месяц" and (
-                            day_date < today_date or day_date > today_date + datetime.timedelta(days=30)):
+                    elif self.selected_period == "Месяц" and (day_date < start_of_month or day_date > end_of_month):
                         continue
 
                     if self.selected_period == "Сегодня":
@@ -518,7 +513,6 @@ class ScheduleTab:
                                 print(f"Invalid time format: {time_start}")
                                 continue
 
-                            # Определяем статус пары
                             is_past = day_date < today_date or (day_date == today_date and lesson_time < current_time)
                             is_current = (day_date == today_date and
                                           lesson_time <= current_time and
@@ -527,7 +521,6 @@ class ScheduleTab:
                                         minutes=90)).time())
                             color = "red" if is_past else "green" if is_current else "blue"
 
-                            # Расписание звонков для текущей пары
                             bell_times = BELL_SCHEDULE.get(time_start, ["", ""]) if is_current else ["", ""]
                             time_display = f"{time_start} – {bell_times[0]} / {bell_times[1]}" if is_current else time_start
 
@@ -536,8 +529,7 @@ class ScheduleTab:
                                     content=ft.Column([
                                         ft.Container(
                                             content=ft.CircleAvatar(bgcolor=color, radius=10),
-                                            alignment=ft.alignment.top_left,
-                                            margin=ft.margin.only(bottom=5)
+                                            alignment=ft.alignment.top_left
                                         ),
                                         ft.Text(f"{time_display}", weight="bold", size=16),
                                         ft.Text(f"{lesson.get('SubjName', '')} ({lesson.get('LoadKindSN', '')})",
@@ -549,27 +541,46 @@ class ScheduleTab:
                                     margin=10
                                 ),
                                 elevation=2,
-                                shape=ft.RoundedRectangleBorder(radius=10)
+                                shape=ft.RoundedRectangleBorder(radius=10),
+                                color="white"
                             )
                             cards.append(lesson_card)
                     else:
-                        # Другие режимы — карточка на день
+                        # Режимы "Неделя", "Месяц", "Все" — карточка на день
+                        is_past = day_date < today_date
+                        is_current = day_date == today_date
+                        is_tomorrow = day_date == tomorrow_date
+                        indicator_color = "grey" if is_past else "green" if is_current else "blue" if is_tomorrow else "grey200"
+
                         day_card = ft.Card(
                             content=ft.Container(
-                                content=ft.Column([
-                                    ft.Text(f"{date_pair} ({day.get('dayWeek', '')})", weight="bold"),
-                                    *[
-                                        ft.Text(
-                                            f"{lesson.get('TimeStart', '')} - {lesson.get('SubjName', '')} ({lesson.get('LoadKindSN', '')}) "
-                                            f"Ауд: {lesson.get('Aud', '')}, Преп: {lesson.get('FIO', '')}"
-                                        )
-                                        for lesson in day.get("mainSchedule", [])
-                                    ]
-                                ]),
-                                padding=10
+                                content=ft.Row([
+                                    ft.Column([
+                                        ft.Text(f"{date_pair} ({day.get('dayWeek', '')})", weight="bold", size=16,
+                                                color=ft.colors.BLACK87),
+                                        *[
+                                            ft.Text(
+                                                f"{lesson.get('TimeStart', '')} - {lesson.get('SubjName', '')} ({lesson.get('LoadKindSN', '')}) "
+                                                f"Ауд: {lesson.get('Aud', '')}, Преп: {lesson.get('FIO', '')}",
+                                                size=14,
+                                                color=ft.colors.BLACK54
+                                            )
+                                            for lesson in day.get("mainSchedule", [])
+                                        ]
+                                    ], expand=True, spacing=8),
+                                    ft.Container(
+                                        content=ft.CircleAvatar(bgcolor=indicator_color, radius=10),
+                                        alignment=ft.alignment.center,
+                                        margin=ft.margin.only(right=10)
+                                    )
+                                ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                                padding=15,
+                                margin=ft.margin.all(10)
                             ),
-                            key=date_pair,
-                            color="red" if day_date < today_date else "green" if day_date == today_date else "blue"
+                            elevation=4,  # Увеличенная тень
+                            shape=ft.RoundedRectangleBorder(radius=12),
+                            color=ft.colors.WHITE,
+                            key=date_pair
                         )
                         cards.append(day_card)
 
@@ -583,11 +594,15 @@ class ScheduleTab:
         print(f"Schedule output controls after update: {len(self.schedule_output.controls)}")
 
         # Прокрутка к текущей дате
-        if self.selected_period in ["Сегодня", "Неделя"] and cards:
-            try:
-                self.schedule_output.scroll_to(key=today_date.strftime("%d.%m.%Y"), duration=1000)
-            except Exception as e:
-                print(f"Scroll error: {e}")
+        if self.selected_period in ["Сегодня", "Неделя", "Месяц", "Все"] and cards:
+            target_key = today_date.strftime("%d.%m.%Y")
+            if any(card.key == target_key for card in cards if hasattr(card, 'key')):
+                try:
+                    self.schedule_output.scroll_to(key=target_key, duration=1000)
+                except Exception as e:
+                    print(f"Scroll error: {e}")
+            else:
+                print(f"Scroll skipped: No card found for {target_key}")
 
     def build(self):
         """Создаём интерфейс вкладки расписания"""

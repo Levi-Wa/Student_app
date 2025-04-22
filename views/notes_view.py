@@ -237,14 +237,18 @@ class NotesView:
         if not disciplines:
             print("Warning: No disciplines available")
             discipline_options = [ft.dropdown.Option("Нет дисциплин")]
+            discipline_value = "Нет дисциплин"
         else:
             discipline_options = [ft.dropdown.Option(d) for d in disciplines]
+            discipline_value = disciplines[0]
 
         self.discipline_dropdown = ft.Dropdown(
             label="Дисциплина",
             options=discipline_options,
-            value=disciplines[0] if disciplines else "Нет дисциплин",
-            width=300
+            value=discipline_value,
+            width=300,
+            filterable=True,  # Включаем поиск для длинных списков
+            on_change=lambda e: self.page.update()
         )
         self.mode_dropdown = ft.Dropdown(
             label="Режим",
