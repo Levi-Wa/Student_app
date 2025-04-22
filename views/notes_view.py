@@ -2,6 +2,7 @@ import flet as ft
 import json
 import os
 import logging
+import datetime
 from typing import List, Dict
 
 class NotesView:
@@ -42,7 +43,8 @@ class NotesView:
             options=[
                 ft.dropdown.Option("Лекция"),
                 ft.dropdown.Option("Практика"),
-                ft.dropdown.Option("Лабораторная")
+                ft.dropdown.Option("Лабораторная"),
+                ft.dropdown.Option("До следующей пары")
             ],
             value="Лекция",
             width=300
@@ -63,6 +65,28 @@ class NotesView:
             self.note_text,
             add_button
         ], alignment=ft.MainAxisAlignment.CENTER)
+
+    def get_next_lesson_date(self, discipline: str) -> str:
+        """Находим дату следующего занятия по дисциплине"""
+        today = datetime.datetime.now().date()
+        next_date = None
+        for schedule in self.schedule_tab.schedules:
+            if "error" in schedule:
+                continue
+            for month in schedule.get("Month", []):
+                for day in month.get("Sched", []):
+                    date_pair = day.get("datePair", "")
+                    try:
+                        day_date = datetime.datetime.strptime(date_pair, "%d.%m.%Y").date()
+                        if day_date <= today:
+                            continue
+                        for lesson in day.get("mainSchedule", []):
+                            if lesson.get("SubjName") == discipline:
+                                if not next_date or day_date < next_date:
+                                    next_date = day_date
+                    except ValueError:
+                        logging.error(f"Invalid date format: {date_pair}")
+        return next_date.strftime("%d.%m.%Y") if next_date else "Неизвестно"
 
     def load_notes(self) -> List[Dict]:
         """Загрузка заметок из файла"""
@@ -96,7 +120,8 @@ class NotesView:
         note = {
             "discipline": self.discipline_dropdown.value,
             "mode": self.mode_dropdown.value,
-            "text": self.note_text.value
+            "text": self.note_text.value,
+            "valid_until": self.get_next_lesson_date(self.discipline_dropdown.value) if self.mode_dropdown.value == "До следующей пары" else "Не ограничено"
         }
         self.notes.append(note)
         self.save_notes()
@@ -105,18 +130,103 @@ class NotesView:
         self.page.update()
         logging.info(f"Note added: {note}")
 
+    def edit_note(self, index: int):
+        """Открывает диалоговое окно для редактирования заметки"""
+        note = self.notes[index]
+        edit_text = ft.TextField(label="Текст заметки", value=note["text"], multiline=True, width=300)
+        edit_mode = ft.Dropdown(
+            label="Режим",
+            options=[
+                ft.dropdown.Option("Лекция"),
+                ft.dropdown.Option("Практика"),
+                ft.dropdown.Option("Лабораторная"),
+                ft.dropdown.Option("До следующей пары")
+            ],
+            value=note["mode"],
+            width=300
+        )
+        extend_validity = ft.Checkbox(label="Продлить актуальность до следующей пары", value=False)
+
+        def save_changes(e):
+            note["text"] = edit_text.value
+            note["mode"] = edit_mode.value
+            if extend_validity.value and note["discipline"] != "Нет дисциплин":
+                note["valid_until"] = self.get_next_lesson_date(note["discipline"])
+            elif note["mode"] != "До следующей пары":
+                note["valid_until"] = "Не ограничено"
+            self.save_notes()
+            self.update_notes_list()
+            self.page.dialog.open = False
+            self.page.update()
+            logging.info(f"Note edited: {note}")
+
+        dialog = ft.AlertDialog(
+            title=ft.Text("Редактировать заметку"),
+            content=ft.Column([edit_text, edit_mode, extend_validity], tight=True),
+            actions=[
+                ft.TextButton("Сохранить", on_click=save_changes),
+                ft.TextButton("Отмена", on_click=lambda e: setattr(self.page.dialog, "open", False))
+            ],
+            actions_alignment=ft.MainAxisAlignment.END
+        )
+        self.page.dialog = dialog
+        dialog.open = True
+        self.page.update()
+
+    def delete_note(self, index: int):
+        """Удаляет заметку по индексу"""
+        note = self.notes.pop(index)
+        self.save_notes()
+        self.update_notes_list()
+        self.page.update()
+        logging.info(f"Note deleted: {note}")
+
     def update_notes_list(self):
         """Обновление списка заметок"""
         self.notes_list.controls.clear()
-        for note in self.notes:
+        today = datetime.datetime.now().date()
+        tomorrow = today + datetime.timedelta(days=1)
+
+        for index, note in enumerate(self.notes):
+            valid_until = note.get("valid_until", "Не ограничено")
+            bgcolor = ft.colors.GREEN_100
+            if valid_until == "Не ограничено":
+                bgcolor = ft.colors.GREEN_100
+            else:
+                try:
+                    valid_date = datetime.datetime.strptime(valid_until, "%d.%m.%Y").date()
+                    if valid_date < today:
+                        bgcolor = ft.colors.RED_100
+                    elif valid_date == today or valid_date == tomorrow:
+                        bgcolor = ft.colors.YELLOW_100
+                    else:
+                        bgcolor = ft.colors.GREEN_100
+                except ValueError:
+                    bgcolor = ft.colors.GREEN_100
+                    logging.error(f"Invalid valid_until format: {valid_until}")
+
             self.notes_list.controls.append(
                 ft.Card(
                     content=ft.Container(
                         content=ft.Column([
                             ft.Text(f"{note['discipline']} ({note['mode']})", weight="bold"),
-                            ft.Text(note['text'])
+                            ft.Text(note['text']),
+                            ft.Text(f"Актуально до: {valid_until}"),
+                            ft.Row([
+                                ft.IconButton(
+                                    ft.icons.EDIT,
+                                    on_click=lambda e, idx=index: self.edit_note(idx),
+                                    tooltip="Редактировать"
+                                ),
+                                ft.IconButton(
+                                    ft.icons.DELETE,
+                                    on_click=lambda e, idx=index: self.delete_note(idx),
+                                    tooltip="Удалить"
+                                )
+                            ])
                         ]),
-                        padding=10
+                        padding=10,
+                        bgcolor=bgcolor
                     )
                 )
             )

@@ -42,7 +42,7 @@ class SettingsView:
         # Сбрасываем расписание и заметки
         self.schedule_tab.schedules = []
         self.schedule_tab.group_id = None
-        self.notes_tab.ui_content.controls.clear()  # Очищаем интерфейс заметок
+        self.notes_tab.ui_content.controls.clear()
         self.page.views.clear()
         self.page.views.append(
             ft.View(
