@@ -6,12 +6,14 @@ import os
 from typing import List, Dict
 import asyncio
 import pytz
+from plyer import notification
+from bs4 import BeautifulSoup
 
 class ScheduleTab:
     def __init__(self, page: ft.Page, app):
         self.page = page
         self.app = app
-        self.group_ids = []
+        self.group_id = None
         self.schedules = []
         self.previous_schedules = []
         self.selected_period = "Сегодня"
@@ -19,23 +21,36 @@ class ScheduleTab:
         self.schedules_file = "schedules.json"
         self.previous_schedules_file = "previous_schedules.json"
         self.load_previous_schedules()
-        self.page.run_task(self.schedule_daily_check)
-
-    async def set_groups(self, group_ids: List[int]):
-        """Устанавливаем группы"""
-        self.group_ids = [str(gid) for gid in group_ids]
 
     def load_local_schedules(self) -> List[Dict]:
         """Загрузка расписания из локального файла"""
         if os.path.exists(self.schedules_file):
-            with open(self.schedules_file, "r", encoding="utf-8") as f:
-                return json.load(f)
+            try:
+                with open(self.schedules_file, "r", encoding="utf-8") as f:
+                    content = f.read().strip()  # Читаем и удаляем пробелы
+                    if not content:  # Проверяем, пустой ли файл
+                        print(f"Warning: {self.schedules_file} is empty")
+                        return []
+                    return json.loads(content)
+            except json.JSONDecodeError as e:
+                print(f"Error: Failed to parse {self.schedules_file}: {e}")
+                return []
+            except Exception as e:
+                print(f"Error: Failed to read {self.schedules_file}: {e}")
+                return []
         return []
 
     def save_schedules(self):
         """Сохранение расписания в локальный файл"""
-        with open(self.schedules_file, "w", encoding="utf-8") as f:
-            json.dump(self.schedules, f, ensure_ascii=False, indent=4)
+        try:
+            # Проверяем, что self.schedules является списком
+            if not isinstance(self.schedules, list):
+                print(f"Error: self.schedules is not a list: {type(self.schedules)}")
+                self.schedules = []
+            with open(self.schedules_file, "w", encoding="utf-8") as f:
+                json.dump(self.schedules, f, ensure_ascii=False, indent=4)
+        except Exception as e:
+            print(f"Error: Failed to save schedules to {self.schedules_file}: {e}")
 
     def load_previous_schedules(self):
         """Загрузка предыдущего расписания"""
@@ -50,195 +65,169 @@ class ScheduleTab:
         with open(self.previous_schedules_file, "w", encoding="utf-8") as f:
             json.dump(self.previous_schedules, f, ensure_ascii=False, indent=4)
 
-    async def load_schedules(self):
-        """Загружаем расписание для всех групп"""
+    def parse_html_schedule(self, html_content: str) -> Dict:
+        """Парсим HTML-страницу с расписанием"""
+        soup = BeautifulSoup(html_content, "html.parser")
+        schedule_data = {"Month": []}
+        current_month = {"Sched": []}
+
+        table = soup.find("table")
+        if not table:
+            print("Error: No table found in HTML")
+            return {"error": "Не удалось найти таблицу с расписанием"}
+
+        rows = table.find_all("tr")
+        if len(rows) <= 1:
+            print("Error: Table has no data rows")
+            return {"error": "Таблица не содержит данных"}
+
+        for row in rows[1:]:  # Пропускаем заголовок
+            cols = row.find_all("td")
+            if len(cols) < 5:
+                print(f"Warning: Row has insufficient columns: {len(cols)}")
+                continue
+
+            # Безопасное извлечение данных
+            date_pair = cols[0].text.strip() if len(cols) > 0 else ""
+            day_week = cols[1].text.strip() if len(cols) > 1 else ""
+            time_text = cols[2].text.strip() if len(cols) > 2 else ""
+            time_start = time_text.split("-")[0] if "-" in time_text else ""
+            time_end = time_text.split("-")[1] if "-" in time_text and len(time_text.split("-")) > 1 else ""
+            discipline = cols[3].text.strip() if len(cols) > 3 else ""
+            lesson_type = cols[4].text.strip() if len(cols) > 4 else ""
+            room = cols[5].text.strip() if len(cols) > 5 else ""
+            teacher = cols[6].text.strip() if len(cols) > 6 else ""
+
+            # Пропускаем пустые строки
+            if not (date_pair and discipline and time_start):
+                print(f"Warning: Skipping row with missing critical data: {date_pair}, {discipline}, {time_start}")
+                continue
+
+            day_schedule = {
+                "datePair": date_pair,
+                "dayWeek": day_week,
+                "mainSchedule": [{
+                    "timeStart": time_start,
+                    "timeEnd": time_end,
+                    "Dis": discipline,
+                    "Type": lesson_type,
+                    "Room": room,
+                    "Teacher": teacher
+                }]
+            }
+            current_month["Sched"].append(day_schedule)
+
+        if not current_month["Sched"]:
+            print("Error: No valid schedule data parsed")
+            return {"error": "Не удалось извлечь данные расписания"}
+
+        schedule_data["Month"].append(current_month)
+        return schedule_data
+
+    def validate_schedule(self, schedule: Dict) -> bool:
+        """Проверка структуры расписания"""
+        if "error" in schedule:
+            return False
+        if not schedule.get("Month"):
+            return False
+        for month in schedule["Month"]:
+            if not month.get("Sched"):
+                return False
+            for day in month["Sched"]:
+                if not day.get("datePair") or not day.get("mainSchedule"):
+                    return False
+                for lesson in day["mainSchedule"]:
+                    if not lesson.get("Dis") or not lesson.get("timeStart"):
+                        return False
+        return True
+
+    async def load_schedule_for_group(self, group_id: str):
+        self.group_id = group_id
         self.schedules = self.load_local_schedules()
-        if self.schedules and any("error" not in sched for sched in self.schedules):
+        if self.schedules and any(self.validate_schedule(sched) for sched in self.schedules):
             print("Loaded schedules from local file")
             await self.display_schedules()
+            self.page.run_task(self.schedule_daily_check)
             return
 
         self.schedules = []
-        api_error = False
-        for group_id in self.group_ids:
-            try:
-                url = f"https://ursei.su/asu/ssched.php?group={group_id}"
-                response = requests.get(url, timeout=5)
-                print(f"API response for group {group_id}: {response.status_code} - {response.text[:200]}")
-                if response.status_code == 200 and response.text.strip():
-                    try:
-                        schedule = response.json()
-                        self.schedules.append(schedule)
-                    except ValueError as e:
-                        print(f"Error fetching schedule for group {group_id}: {e}")
-                        self.schedules.append({"error": f"Не удалось загрузить расписание для группы {group_id}"})
-                        api_error = True
+        try:
+            url = f"https://ursei.su/asu/ssched.php?group={group_id}"
+            response = requests.get(url, timeout=5)
+            print(
+                f"API response for group {group_id}: {response.status_code} - {response.text[:1000]}")  # Логируем больше данных
+            with open("api_response.html", "w", encoding="utf-8") as f:  # Сохраняем ответ для анализа
+                f.write(response.text)
+            if response.status_code == 200 and response.text.strip():
+                try:
+                    schedule = response.json()
+                except ValueError:
+                    schedule = self.parse_html_schedule(response.text)
+                if self.validate_schedule(schedule):
+                    self.schedules.append(schedule)
                 else:
-                    print(f"Invalid response for group {group_id}: {response.status_code}")
-                    self.schedules.append({"error": f"Не удалось загрузить расписание для группы {group_id}"})
-                    api_error = True
-            except Exception as e:
-                print(f"Error fetching schedule for group {group_id}: {e}")
-                self.schedules.append({"error": f"Ошибка загрузки расписания: {e}"})
-                api_error = True
-
-        if api_error and not any("error" not in sched for sched in self.schedules):
-            print("Using fallback schedule due to API failure")
-            today = datetime.date.today()
-            tomorrow = today + datetime.timedelta(days=1)
-            next_week = today + datetime.timedelta(days=7)
-            self.schedules = [{
-                "Month": [{
-                    "Sched": [
-                        {
-                            "datePair": today.strftime("%d.%m.%Y"),
-                            "dayWeek": "Пн",
-                            "mainSchedule": [
-                                {"timeStart": "09:00", "timeEnd": "10:30", "Dis": "Философия", "Type": "Лекция", "Room": "101", "Teacher": "Иванов И.И."},
-                                {"timeStart": "10:40", "timeEnd": "12:10", "Dis": "Математика", "Type": "Практика", "Room": "102", "Teacher": "Петров П.П."}
-                            ]
-                        },
-                        {
-                            "datePair": tomorrow.strftime("%d.%m.%Y"),
-                            "dayWeek": "Вт",
-                            "mainSchedule": [
-                                {"timeStart": "09:00", "timeEnd": "10:30", "Dis": "Программирование", "Type": "Лекция", "Room": "103", "Teacher": "Сидоров С.С."},
-                                {"timeStart": "10:40", "timeEnd": "12:10", "Dis": "Физика", "Type": "Лекция", "Room": "104", "Teacher": "Смирнова А.А."}
-                            ]
-                        },
-                        {
-                            "datePair": next_week.strftime("%d.%m.%Y"),
-                            "dayWeek": "Пн",
-                            "mainSchedule": [
-                                {"timeStart": "09:00", "timeEnd": "10:30", "Dis": "История", "Type": "Семинар", "Room": "105", "Teacher": "Козлов В.В."},
-                                {"timeStart": "10:40", "timeEnd": "12:10", "Dis": "Литература", "Type": "Лекция", "Room": "106", "Teacher": "Фёдорова Е.Е."}
-                            ]
-                        }
-                    ]
-                }]
-            }]
-            self.page.snack_bar = ft.SnackBar(
-                ft.Text("Не удалось загрузить расписание с сервера. Используется тестовое расписание."),
-                duration=5000
-            )
-            self.page.snack_bar.open = True
-            self.page.update()
+                    print(f"Invalid schedule structure for group {group_id}")
+                    self.schedules.append({"error": f"Некорректная структура расписания для группы {group_id}"})
+            else:
+                print(f"Invalid response for group {group_id}: {response.status_code}")
+                self.schedules.append({"error": f"Не удалось загрузить расписание для группы {group_id}"})
+        except Exception as e:
+            print(f"Error fetching schedule for group {group_id}: {e}")
+            self.schedules.append({"error": f"Ошибка загрузки расписания: {e}"})
 
         self.save_schedules()
         await self.display_schedules()
-
-    async def load_schedule_from_url(self, url: str, group_id: str):
-        """Загрузка расписания по URL и сохранение в schedules.json"""
-        try:
-            response = requests.get(url, timeout=5)
-            print(f"Manual API response for group {group_id}: {response.status_code} - {response.text[:200]}")
-            if response.status_code == 200 and response.text.strip():
-                schedule = response.json()
-                # Проверяем, есть ли уже расписание для этой группы
-                self.schedules = [s for s in self.schedules if not s.get("error", "").endswith(f"группы {group_id}")]
-                self.schedules.append(schedule)
-                self.save_schedules()
-                self.page.snack_bar = ft.SnackBar(
-                    ft.Text(f"Расписание для группы {group_id} успешно загружено!"),
-                    duration=5000
-                )
-            else:
-                self.page.snack_bar = ft.SnackBar(
-                    ft.Text(f"Не удалось загрузить расписание для группы {group_id}: код {response.status_code}"),
-                    duration=5000
-                )
-        except ValueError as e:
-            print(f"Error parsing JSON for group {group_id}: {e}")
-            self.page.snack_bar = ft.SnackBar(
-                ft.Text(f"Ошибка: сервер вернул невалидный JSON для группы {group_id}"),
-                duration=5000
-            )
-        except Exception as e:
-            print(f"Error fetching schedule for group {group_id}: {e}")
-            self.page.snack_bar = ft.SnackBar(
-                ft.Text(f"Ошибка загрузки расписания для группы {group_id}: {e}"),
-                duration=5000
-            )
-        self.page.snack_bar.open = True
-        self.page.update()
-        await self.display_schedules()
+        self.page.run_task(self.schedule_daily_check)
 
     async def refresh_schedules(self):
-        """Метод оставлен для совместимости, но больше не используется"""
+        """Обновление расписания"""
+        if not self.group_id:
+            return
+
         self.previous_schedules = self.schedules.copy()
         self.save_previous_schedules()
 
         self.schedules = []
-        api_error = False
-        for group_id in self.group_ids:
-            try:
-                url = f"https://ursei.su/asu/ssched.php?group={group_id}"
-                response = requests.get(url, timeout=5)
-                print(f"API response for group {group_id}: {response.status_code} - {response.text[:200]}")
-                if response.status_code == 200 and response.text.strip():
-                    try:
-                        schedule = response.json()
-                        self.schedules.append(schedule)
-                    except ValueError as e:
-                        print(f"Error fetching schedule for group {group_id}: {e}")
-                        self.schedules.append({"error": f"Не удалось загрузить расписание для группы {group_id}"})
-                        api_error = True
+        try:
+            url = f"https://ursei.su/asu/ssched.php?group={self.group_id}"
+            response = requests.get(url, timeout=5)
+            print(f"API response for group {self.group_id}: {response.status_code} - {response.text[:200]}")
+            if response.status_code == 200 and response.text.strip():
+                try:
+                    schedule = response.json()
+                except ValueError:
+                    schedule = self.parse_html_schedule(response.text)
+                if self.validate_schedule(schedule):
+                    self.schedules.append(schedule)
                 else:
-                    print(f"Invalid response for group {group_id}: {response.status_code}")
-                    self.schedules.append({"error": f"Не удалось загрузить расписание для группы {group_id}"})
-                    api_error = True
-            except Exception as e:
-                print(f"Error fetching schedule for group {group_id}: {e}")
-                self.schedules.append({"error": f"Ошибка загрузки расписания: {e}"})
-                api_error = True
-
-        if api_error and not any("error" not in sched for sched in self.schedules):
-            print("Using fallback schedule due to API failure")
-            today = datetime.date.today()
-            tomorrow = today + datetime.timedelta(days=1)
-            next_week = today + datetime.timedelta(days=7)
-            self.schedules = [{
-                "Month": [{
-                    "Sched": [
-                        {
-                            "datePair": today.strftime("%d.%m.%Y"),
-                            "dayWeek": "Пн",
-                            "mainSchedule": [
-                                {"timeStart": "09:00", "timeEnd": "10:30", "Dis": "Философия", "Type": "Лекция", "Room": "101", "Teacher": "Иванов И.И."},
-                                {"timeStart": "10:40", "timeEnd": "12:10", "Dis": "Математика", "Type": "Практика", "Room": "102", "Teacher": "Петров П.П."}
-                            ]
-                        },
-                        {
-                            "datePair": tomorrow.strftime("%d.%m.%Y"),
-                            "dayWeek": "Вт",
-                            "mainSchedule": [
-                                {"timeStart": "09:00", "timeEnd": "10:30", "Dis": "Программирование", "Type": "Лекция", "Room": "103", "Teacher": "Сидоров С.С."},
-                                {"timeStart": "10:40", "timeEnd": "12:10", "Dis": "Физика", "Type": "Лекция", "Room": "104", "Teacher": "Смирнова А.А."}
-                            ]
-                        },
-                        {
-                            "datePair": next_week.strftime("%d.%m.%Y"),
-                            "dayWeek": "Пн",
-                            "mainSchedule": [
-                                {"timeStart": "09:00", "timeEnd": "10:30", "Dis": "История", "Type": "Семинар", "Room": "105", "Teacher": "Козлов В.В."},
-                                {"timeStart": "10:40", "timeEnd": "12:10", "Dis": "Литература", "Type": "Лекция", "Room": "106", "Teacher": "Фёдорова Е.Е."}
-                            ]
-                        }
-                    ]
-                }]
-            }]
-            self.page.snack_bar = ft.SnackBar(
-                ft.Text("Не удалось обновить расписание с сервера. Используется тестовое расписание."),
-                duration=5000
-            )
-            self.page.snack_bar.open = True
-            self.page.update()
+                    print(f"Invalid schedule structure for group {self.group_id}")
+                    self.schedules.append({"error": f"Некорректная структура расписания для группы {self.group_id}"})
+            else:
+                print(f"Invalid response for group {self.group_id}: {response.status_code}")
+                self.schedules.append({"error": f"Не удалось загрузить расписание для группы {self.group_id}"})
+        except Exception as e:
+            print(f"Error fetching schedule for group {self.group_id}: {e}")
+            self.schedules.append({"error": f"Ошибка загрузки расписания: {e}"})
 
         self.save_schedules()
         await self.check_schedule_changes()
         await self.display_schedules()
-        if not api_error:
-            self.page.snack_bar = ft.SnackBar(ft.Text("Расписание обновлено!"))
+
+    def notify(self, title: str, message: str):
+        """Отправка push-уведомления"""
+        try:
+            notification.notify(
+                title=title,
+                message=message,
+                app_name="Студенческое приложение",
+                timeout=10
+            )
+        except Exception as e:
+            print(f"Failed to send notification: {e}")
+            self.page.snack_bar = ft.SnackBar(
+                ft.Text(message),
+                duration=10000
+            )
             self.page.snack_bar.open = True
             self.page.update()
 
@@ -252,7 +241,7 @@ class ScheduleTab:
             return
 
         changes = []
-        for old_sched, new_sched, group_id in zip(self.previous_schedules, self.schedules, self.group_ids):
+        for old_sched, new_sched in zip(self.previous_schedules, self.schedules):
             if "error" in old_sched or "error" in new_sched:
                 continue
 
@@ -276,7 +265,7 @@ class ScheduleTab:
             for key, new_lesson in new_lessons.items():
                 old_lesson = old_lessons.get(key)
                 if not old_lesson:
-                    changes.append(f"Группа {group_id}: Новое занятие: {new_lesson['Dis']} ({new_lesson['datePair']})")
+                    changes.append(f"Новое занятие: {new_lesson['Dis']} ({new_lesson['datePair']})")
                     continue
 
                 change_details = []
@@ -288,15 +277,10 @@ class ScheduleTab:
                     change_details.append(f"Время: {old_lesson['timeStart']}-{old_lesson['timeEnd']} → {new_lesson['timeStart']}-{new_lesson['timeEnd']}")
 
                 if change_details:
-                    changes.append(f"Группа {group_id}: {new_lesson['Dis']} ({new_lesson['datePair']}): {', '.join(change_details)}")
+                    changes.append(f"{new_lesson['Dis']} ({new_lesson['datePair']}): {', '.join(change_details)}")
 
         if changes:
-            self.page.snack_bar = ft.SnackBar(
-                ft.Text("Изменения в расписании: " + "; ".join(changes)),
-                duration=10000
-            )
-            self.page.snack_bar.open = True
-            self.page.update()
+            self.notify("Изменения в расписании", "; ".join(changes))
 
     async def schedule_daily_check(self):
         """Планировщик проверки расписания в 5 утра по челябинскому времени"""
@@ -326,9 +310,7 @@ class ScheduleTab:
                         discipline = lesson.get("Dis", "")
                         if discipline:
                             disciplines.add(discipline)
-        return sorted(list(disciplines)) if disciplines else [
-            "Философия", "Математика", "Программирование", "Физика", "История", "Литература", "Экономика"
-        ]
+        return sorted(list(disciplines))
 
     def get_next_lesson_date(self, discipline: str, mode: str) -> datetime.date:
         """Определение даты следующего занятия по дисциплине"""
@@ -459,21 +441,18 @@ class ScheduleTab:
 
         print(f"Displaying schedules for period: {self.selected_period}")
 
-        for group_id, schedule in zip(self.group_ids, self.schedules):
+        for schedule in self.schedules:
             if "error" in schedule:
                 self.schedule_output.controls.append(
-                    ft.Text(f"Ошибка для группы {group_id}: {schedule['error']}", color="red")
+                    ft.Text(f"Ошибка: {schedule['error']}", color="red")
                 )
                 continue
 
             group_column = ft.Column()
-            group_column.controls.append(
-                ft.Text(f"Группа ID: {group_id}", size=16, weight="bold")
-            )
 
             if not schedule.get("Month"):
                 self.schedule_output.controls.append(
-                    ft.Text(f"Нет данных для группы {group_id}", color="orange")
+                    ft.Text("Нет данных", color="orange")
                 )
                 continue
 
@@ -481,7 +460,7 @@ class ScheduleTab:
                 for day in month.get("Sched", []):
                     date_str = day.get("datePair", "")
                     if not date_str:
-                        print(f"Skipping empty date for group {group_id}")
+                        print("Skipping empty date")
                         continue
 
                     try:
@@ -518,7 +497,7 @@ class ScheduleTab:
                 )
             else:
                 self.schedule_output.controls.append(
-                    ft.Text(f"Нет расписания для группы {group_id} в выбранном периоде", color="orange")
+                    ft.Text("Нет расписания в выбранном периоде", color="orange")
                 )
 
         if not self.schedule_output.controls:
@@ -570,7 +549,7 @@ class ScheduleTab:
             ],
             value=self.selected_period,
             width=200,
-            on_change=lambda e: self.page.run_task(self.update_period, e.control.value)  # Исправлено
+            on_change=lambda e: self.page.run_task(self.update_period, e.control.value)
         )
 
         return ft.Column([
