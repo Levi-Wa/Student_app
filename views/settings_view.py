@@ -1,6 +1,7 @@
 import flet as ft
 import json
 import os
+import logging
 
 class SettingsView:
     def __init__(self, page: ft.Page, app, schedule_tab, group_selection_view):
@@ -18,10 +19,10 @@ class SettingsView:
                 with open(self.settings_file, "r", encoding="utf-8") as f:
                     self.app.settings = json.load(f)
             except Exception as e:
-                print(f"Error loading settings: {e}")
+                logging.error(f"Error loading settings: {e}")
         self.app.settings.setdefault("schedule_notifications", True)
-        self.app.settings.setdefault("expiry_days", 1)  # По умолчанию 1 день
-        self.app.settings.setdefault("theme", "light")  # По умолчанию светлая тема
+        self.app.settings.setdefault("expiry_days", 1)
+        self.app.settings.setdefault("theme", "light")
 
     def save_settings(self):
         """Сохранение настроек в файл"""
@@ -29,10 +30,13 @@ class SettingsView:
             with open(self.settings_file, "w", encoding="utf-8") as f:
                 json.dump(self.app.settings, f, ensure_ascii=False, indent=4)
         except Exception as e:
-            print(f"Error saving settings: {e}")
+            logging.error(f"Error saving settings: {e}")
 
     def change_group(self, e):
         """Переход к экрану выбора группы"""
+        logging.info("Switching to group selection")
+        self.app.settings.pop("group_id", None)
+        self.app.save_settings()
         self.page.views.clear()
         self.page.views.append(
             ft.View(

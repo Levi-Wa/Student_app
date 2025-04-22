@@ -233,9 +233,11 @@ class NotesView:
 
     def build_note_form(self):
         """Создаём форму для добавления заметки"""
+        import logging
         disciplines = self.schedule_tab.get_unique_disciplines()
+        logging.info(f"Disciplines in build_note_form: {disciplines}")
         if not disciplines:
-            print("Warning: No disciplines available")
+            logging.warning("No disciplines available")
             discipline_options = [ft.dropdown.Option("Нет дисциплин")]
             discipline_value = "Нет дисциплин"
         else:
@@ -247,7 +249,7 @@ class NotesView:
             options=discipline_options,
             value=discipline_value,
             width=300,
-            filterable=True,  # Включаем поиск для длинных списков
+            filterable=True,
             on_change=lambda e: self.page.update()
         )
         self.mode_dropdown = ft.Dropdown(

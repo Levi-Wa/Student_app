@@ -1,21 +1,14 @@
 import flet as ft
-import requests
 import json
-import os
+import logging
 
 class GroupSelectionView:
-    def __init__(self, page: ft.Page, schedule_tab, on_selection_complete):
+    def __init__(self, page: ft.Page, schedule_tab, on_selection_complete, app):
         self.page = page
         self.schedule_tab = schedule_tab
         self.on_selection_complete = on_selection_complete
-        self.course_dropdown = None
-        self.group_dropdown = None
-        self.groups_data = self.load_groups_data()
-
-    def load_groups_data(self):
-        """Возвращаем данные о курсах и группах"""
-        # Это статические данные, можно заменить на загрузку из API, если есть такая возможность
-        return {
+        self.app = app
+        self.groups_data = {
             "1 курс": [
                 {"name": "Группа 101", "id": "26616"},
                 {"name": "Группа 102", "id": "26617"}
@@ -23,26 +16,49 @@ class GroupSelectionView:
             "2 курс": [
                 {"name": "Группа 201", "id": "26618"},
                 {"name": "Группа 202", "id": "26619"}
-            ],
-            "3 курс": [
-                {"name": "Группа 301", "id": "26620"},
-                {"name": "Группа 302", "id": "26621"}
-            ],
-            "4 курс": [
-                {"name": "Группа 401", "id": "26622"},
-                {"name": "Группа 402", "id": "26623"}
             ]
         }
+        self.course_dropdown = ft.Dropdown(
+            label="Курс",
+            options=[ft.dropdown.Option(course) for course in self.groups_data.keys()],
+            on_change=self.update_groups,
+            width=300
+        )
+        self.group_dropdown = ft.Dropdown(
+            label="Группа",
+            width=300
+        )
+        self.select_button = ft.ElevatedButton(
+            text="Выбрать",
+            on_click=self.on_group_select
+        )
+        # Инициализируем group_dropdown для первого курса, если он есть
+        if self.groups_data:
+            self.update_groups(None)
 
-    async def on_course_change(self, e):
-        """Обновляем список групп при выборе курса"""
-        selected_course = e.control.value
+    def update_groups(self, e):
+        """Обновляем выпадающий список групп на основе выбранного курса"""
+        selected_course = self.course_dropdown.value or list(self.groups_data.keys())[0]
         groups = self.groups_data.get(selected_course, [])
         self.group_dropdown.options = [ft.dropdown.Option(group["name"]) for group in groups]
-        self.group_dropdown.value = None
+        self.group_dropdown.value = groups[0]["name"] if groups else None
         self.page.update()
+        logging.info(f"Updated groups for course {selected_course}: {[g['name'] for g in groups]}")
+
+    def build(self):
+        return ft.Column(
+            [
+                ft.Text("Выберите курс и группу", size=20, weight="bold"),
+                self.course_dropdown,
+                self.group_dropdown,
+                self.select_button
+            ],
+            alignment=ft.MainAxisAlignment.CENTER,
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER
+        )
 
     async def on_group_select(self, e):
+        import logging
         selected_course = self.course_dropdown.value
         selected_group = self.group_dropdown.value
         if not selected_course or not selected_group:
@@ -61,6 +77,10 @@ class GroupSelectionView:
                 break
 
         if group_id:
+            self.schedule_tab.group_id = group_id
+            self.app.settings["group_id"] = group_id
+            self.app.save_settings()
+            logging.info(f"Saved group_id: {group_id}")
             await self.schedule_tab.load_schedule_for_group(group_id)
             if all("error" in sched for sched in self.schedule_tab.schedules):
                 self.page.snack_bar = ft.SnackBar(
@@ -70,32 +90,5 @@ class GroupSelectionView:
                 self.page.snack_bar.open = True
                 self.page.update()
                 return
-            self.on_selection_complete()
-
-    def build(self):
-        """Создаём интерфейс выбора курса и группы"""
-        self.course_dropdown = ft.Dropdown(
-            label="Курс",
-            options=[ft.dropdown.Option(course) for course in self.groups_data.keys()],
-            width=300,
-            on_change=self.on_course_change
-        )
-
-        self.group_dropdown = ft.Dropdown(
-            label="Группа",
-            options=[],
-            width=300
-        )
-
-        select_button = ft.ElevatedButton(
-            "Выбрать",
-            on_click=self.on_group_select,
-            icon=ft.Icons.CHECK
-        )
-
-        return ft.Column([
-            ft.Text("Выберите курс и группу", size=20, weight="bold"),
-            self.course_dropdown,
-            self.group_dropdown,
-            select_button
-        ], alignment=ft.MainAxisAlignment.CENTER, horizontal_alignment=ft.CrossAxisAlignment.CENTER)
+            logging.info("Calling on_selection_complete")
+            await self.on_selection_complete()  # Добавляем await
