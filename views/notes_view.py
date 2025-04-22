@@ -5,6 +5,7 @@ import logging
 import datetime
 from typing import List, Dict
 
+
 class NotesView:
     def __init__(self, page: ft.Page, schedule_tab, app):
         self.page = page
@@ -20,7 +21,6 @@ class NotesView:
 
     def build_note_form(self):
         """Создаём форму для добавления заметки"""
-        import logging
         disciplines = self.schedule_tab.get_unique_disciplines()
         logging.info(f"Disciplines in build_note_form: {disciplines}")
         if not disciplines:
@@ -66,9 +66,16 @@ class NotesView:
             add_button
         ], alignment=ft.MainAxisAlignment.CENTER)
 
-    def get_next_lesson_date(self, discipline: str, mode: str) -> str:
-        """Находим дату следующего занятия по дисциплине и режиму"""
+    def get_next_lesson_date(self, discipline: str, mode: str, current_valid_until: str = None) -> str:
+        """Находим дату следующего занятия по дисциплине и режиму после текущей даты или valid_until"""
         today = datetime.datetime.now().date()
+        reference_date = today
+        if current_valid_until and current_valid_until != "Неизвестно":
+            try:
+                reference_date = datetime.datetime.strptime(current_valid_until, "%d.%m.%Y").date()
+            except ValueError:
+                logging.error(f"Invalid current_valid_until format: {current_valid_until}")
+
         next_date = None
         mode_mapping = {
             "Лекция": "Лекция",
@@ -86,7 +93,7 @@ class NotesView:
                     date_pair = day.get("datePair", "")
                     try:
                         day_date = datetime.datetime.strptime(date_pair, "%d.%m.%Y").date()
-                        if day_date <= today:
+                        if day_date <= reference_date:
                             continue
                         for lesson in day.get("mainSchedule", []):
                             if lesson.get("SubjName") == discipline:
@@ -95,8 +102,9 @@ class NotesView:
                                         next_date = day_date
                     except ValueError:
                         logging.error(f"Invalid date format: {date_pair}")
+
         if next_date is None:
-            logging.warning(f"No upcoming lessons found for {discipline} ({mode})")
+            logging.warning(f"No upcoming lessons found for {discipline} ({mode}) after {reference_date}")
             self.page.snack_bar = ft.SnackBar(
                 ft.Text(f"Нет предстоящих занятий по {discipline} ({mode})"),
                 duration=3000
@@ -165,20 +173,15 @@ class NotesView:
                 value=note["mode"],
                 width=300
             )
-            extend_validity = ft.Checkbox(label="Продлить актуальность до следующей пары", value=False)
 
             def save_changes(e):
                 try:
                     note["text"] = edit_text.value
                     note["mode"] = edit_mode.value
-                    if extend_validity.value and note["discipline"] != "Нет дисциплин":
-                        note["valid_until"] = self.get_next_lesson_date(note["discipline"], "До следующей пары")
-                        logging.info(
-                            f"Extended validity for {note['discipline']} to next lesson: {note['valid_until']}")
-                    else:
-                        note["valid_until"] = self.get_next_lesson_date(note["discipline"], edit_mode.value)
-                        logging.info(
-                            f"Updated validity for {note['discipline']} with mode {edit_mode.value}: {note['valid_until']}")
+                    note["valid_until"] = self.get_next_lesson_date(note["discipline"], edit_mode.value,
+                                                                    note["valid_until"])
+                    logging.info(
+                        f"Updated validity for {note['discipline']} with mode {edit_mode.value}: {note['valid_until']}")
                     self.save_notes()
                     self.update_notes_list()
                     self.page.dialog.open = False
@@ -200,7 +203,7 @@ class NotesView:
 
             dialog = ft.AlertDialog(
                 title=ft.Text("Редактировать заметку"),
-                content=ft.Column([edit_text, edit_mode, extend_validity], tight=True),
+                content=ft.Column([edit_text, edit_mode], tight=True),
                 actions=[
                     ft.TextButton("Сохранить", on_click=save_changes),
                     ft.TextButton("Отмена", on_click=cancel_changes)
@@ -217,6 +220,35 @@ class NotesView:
             logging.error(f"Error opening edit dialog: {e}")
             self.page.snack_bar = ft.SnackBar(
                 ft.Text("Ошибка при открытии редактирования"),
+                duration=3000
+            )
+            self.page.snack_bar.open = True
+            self.page.update()
+
+    def extend_validity(self, index: int):
+        """Продлевает актуальность заметки до следующей пары"""
+        try:
+            note = self.notes[index]
+            logging.info(f"Extending validity for note at index {index}: {note}")
+            if note["discipline"] != "Нет дисциплин":
+                note["valid_until"] = self.get_next_lesson_date(note["discipline"], "До следующей пары",
+                                                                note["valid_until"])
+                logging.info(f"Extended validity for {note['discipline']} to next lesson: {note['valid_until']}")
+                self.save_notes()
+                self.update_notes_list()
+                self.page.update()
+            else:
+                logging.warning("Cannot extend validity: No discipline selected")
+                self.page.snack_bar = ft.SnackBar(
+                    ft.Text("Невозможно продлить: дисциплина не выбрана"),
+                    duration=3000
+                )
+                self.page.snack_bar.open = True
+                self.page.update()
+        except Exception as e:
+            logging.error(f"Error extending validity: {e}")
+            self.page.snack_bar = ft.SnackBar(
+                ft.Text("Ошибка при продлении актуальности"),
                 duration=3000
             )
             self.page.snack_bar.open = True
@@ -270,6 +302,11 @@ class NotesView:
                                         ft.icons.EDIT,
                                         on_click=lambda e, idx=index: self.edit_note(idx),
                                         tooltip="Редактировать"
+                                    ),
+                                    ft.IconButton(
+                                        ft.icons.TODAY,
+                                        on_click=lambda e, idx=index: self.extend_validity(idx),
+                                        tooltip="Продлить актуальность"
                                     ),
                                     ft.IconButton(
                                         ft.icons.DELETE,
