@@ -488,6 +488,8 @@ class ScheduleTab:
     async def display_schedules(self):
         """Отображаем расписание для выбранного периода"""
         import logging
+        import datetime
+        import flet as ft
         logging.info(f"Clearing schedule_output, current controls: {len(self.schedule_output.controls)}")
         self.schedule_output.controls.clear()
 
@@ -521,6 +523,7 @@ class ScheduleTab:
                         logging.error(f"Invalid date format: {date_pair}")
                         continue
 
+                    # Фильтрация по периоду
                     if self.selected_period == "Сегодня" and day_date != today_date:
                         continue
                     elif self.selected_period == "Неделя" and (day_date < start_of_week or day_date > end_of_week):
@@ -529,8 +532,49 @@ class ScheduleTab:
                         continue
 
                     if self.selected_period == "Сегодня":
+                        # Режим "Сегодня" — отдельные контейнеры для каждой пары
+                        for lesson in day.get("mainSchedule", []):
+                            time_start = lesson.get("TimeStart", "")
+                            try:
+                                lesson_time = datetime.datetime.strptime(time_start, "%H:%M").time()
+                            except ValueError:
+                                logging.error(f"Invalid time format: {time_start}")
+                                continue
 
+                            is_past = day_date < today_date or (day_date == today_date and lesson_time < current_time)
+                            is_current = (day_date == today_date and
+                                          lesson_time <= current_time and
+                                          lesson_time >= (datetime.datetime.combine(today_date,
+                                                                                    current_time) - datetime.timedelta(
+                                        minutes=90)).time())
+                            color = "red" if is_past else "green" if is_current else "blue"
+
+                            bell_times = BELL_SCHEDULE.get(time_start, ["", ""]) if is_current else ["", ""]
+                            time_display = f"{time_start} – {bell_times[0]} / {bell_times[1]}" if is_current else time_start
+
+                            lesson_card = ft.Card(
+                                content=ft.Container(
+                                    content=ft.Column([
+                                        ft.Container(
+                                            content=ft.CircleAvatar(bgcolor=color, radius=10),
+                                            alignment=ft.alignment.top_left
+                                        ),
+                                        ft.Text(f"{time_display}", weight="bold", size=16),
+                                        ft.Text(f"{lesson.get('SubjName', '')} ({lesson.get('LoadKindSN', '')})",
+                                                size=14),
+                                        ft.Text(f"Ауд: {lesson.get('Aud', '')}", size=12),
+                                        ft.Text(f"Преп: {lesson.get('FIO', '')}", size=12)
+                                    ], spacing=5),
+                                    padding=15,
+                                    margin=10
+                                ),
+                                elevation=2,
+                                shape=ft.RoundedRectangleBorder(radius=10),
+                                color="white"
+                            )
+                            cards.append(lesson_card)
                     else:
+                        # Режимы "Неделя", "Месяц", "Все" — карточка на день
                         is_past = day_date < today_date
                         is_current = day_date == today_date
                         is_tomorrow = day_date == tomorrow_date

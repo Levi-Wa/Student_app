@@ -3,6 +3,7 @@ import json
 import os
 import logging
 
+
 class SettingsView:
     def __init__(self, page: ft.Page, app, schedule_tab, group_selection_view):
         self.page = page
@@ -34,9 +35,14 @@ class SettingsView:
 
     def change_group(self, e):
         """Переход к экрану выбора группы"""
+        import logging
         logging.info("Switching to group selection")
         self.app.settings.pop("group_id", None)
         self.app.save_settings()
+        # Сбрасываем расписание и заметки
+        self.schedule_tab.schedules = []
+        self.schedule_tab.group_id = None
+        self.notes_tab.ui_content.controls.clear()  # Очищаем интерфейс заметок
         self.page.views.clear()
         self.page.views.append(
             ft.View(
@@ -45,6 +51,7 @@ class SettingsView:
             )
         )
         self.page.update()
+        logging.info("Group selection view displayed")
 
     def toggle_theme(self, e):
         """Переключение темы"""

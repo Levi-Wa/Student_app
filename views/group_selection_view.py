@@ -91,4 +91,4 @@ class GroupSelectionView:
                 self.page.update()
                 return
             logging.info("Calling on_selection_complete")
-            await self.on_selection_complete()  # Добавляем await
+            await self.on_selection_complete()

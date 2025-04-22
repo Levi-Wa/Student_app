@@ -2,6 +2,7 @@ import flet as ft
 import json
 import os
 import logging
+import asyncio
 from views.schedule_view import ScheduleTab
 from views.notes_view import NotesView
 from views.group_selection_view import GroupSelectionView
@@ -56,13 +57,18 @@ class App:
 
     async def show_main_view(self):
         """Показываем основной интерфейс после выбора группы"""
+        import logging
         self.page.views.clear()
+        # Пересоздаем интерфейс заметок
+        self.notes_tab.ui_content.controls.clear()
+        self.notes_tab.ui_content.controls.append(self.notes_tab.build_note_form())
+        self.notes_tab.ui_content.controls.append(self.notes_tab.notes_list)
         self.page.views.append(
             ft.View(
                 "/",
                 [
                     ft.Tabs(
-                        selected_index=1,
+                        selected_index=1,  # Открываем вкладку "Расписание"
                         tabs=[
                             ft.Tab(text="Заметки", content=self.notes_tab.ui_content),
                             ft.Tab(text="Расписание", content=self.schedule_tab.build()),
@@ -74,11 +80,14 @@ class App:
             )
         )
         self.page.update()
+        logging.info("Main view displayed")
         if self.schedule_tab.group_id:
             await self.schedule_tab.load_schedule_for_group(self.schedule_tab.group_id)
+            # Обновляем форму заметок после загрузки расписания
             self.notes_tab.ui_content.controls.clear()
             self.notes_tab.ui_content.controls.append(self.notes_tab.build_note_form())
             self.notes_tab.ui_content.controls.append(self.notes_tab.notes_list)
+            logging.info("Notes form rebuilt after schedule load")
             self.page.run_task(self.schedule_tab.display_schedules)
         self.page.update()
 
