@@ -13,7 +13,7 @@ class App:
         self.page.window_height = 800
         self.settings = {}
         self.schedule_tab = ScheduleTab(page)
-        self.notes_tab = NotesView(page, self.schedule_tab)
+        self.notes_tab = NotesView(page, self.schedule_tab,self)
         self.group_selection_view = GroupSelectionView(page, self.schedule_tab, self.show_main_view)
         self.settings_tab = SettingsView(page, self, self.schedule_tab, self.group_selection_view)
         self.show_group_selection()
@@ -25,7 +25,7 @@ class App:
             ft.View(
                 "/",
                 [
-                    self.group_selection.build()
+                    self.group_selection_view.build()
                 ],
                 vertical_alignment=ft.MainAxisAlignment.CENTER,
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER
