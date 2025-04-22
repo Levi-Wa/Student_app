@@ -1,0 +1,5 @@
+{
+    "schedule_notifications": true,
+    "expiry_days": 3,
+    "theme": "light"
+}
