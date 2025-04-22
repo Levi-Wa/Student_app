@@ -43,7 +43,6 @@ class GroupSelectionView:
         self.page.update()
 
     async def on_group_select(self, e):
-        """Загружаем расписание после выбора группы"""
         selected_course = self.course_dropdown.value
         selected_group = self.group_dropdown.value
         if not selected_course or not selected_group:
@@ -55,7 +54,6 @@ class GroupSelectionView:
             self.page.update()
             return
 
-        # Находим ID группы
         group_id = None
         for group in self.groups_data[selected_course]:
             if group["name"] == selected_group:
@@ -64,7 +62,15 @@ class GroupSelectionView:
 
         if group_id:
             await self.schedule_tab.load_schedule_for_group(group_id)
-            self.on_selection_complete()  # Переходим к основному интерфейсу
+            if all("error" in sched for sched in self.schedule_tab.schedules):
+                self.page.snack_bar = ft.SnackBar(
+                    ft.Text("Ошибка загрузки расписания. Попробуйте другую группу или проверьте подключение."),
+                    duration=5000
+                )
+                self.page.snack_bar.open = True
+                self.page.update()
+                return
+            self.on_selection_complete()
 
     def build(self):
         """Создаём интерфейс выбора курса и группы"""

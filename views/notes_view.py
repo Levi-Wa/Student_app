@@ -230,3 +230,45 @@ class NotesView:
         self.page.snack_bar = ft.SnackBar(ft.Text("Заметка удалена!"))
         self.page.snack_bar.open = True
         self.page.update()
+
+    def build_note_form(self):
+        """Создаём форму для добавления заметки"""
+        disciplines = self.schedule_tab.get_unique_disciplines()
+        if not disciplines:
+            print("Warning: No disciplines available")
+            discipline_options = [ft.dropdown.Option("Нет дисциплин")]
+        else:
+            discipline_options = [ft.dropdown.Option(d) for d in disciplines]
+
+        self.discipline_dropdown = ft.Dropdown(
+            label="Дисциплина",
+            options=discipline_options,
+            value=disciplines[0] if disciplines else "Нет дисциплин",
+            width=300
+        )
+        self.mode_dropdown = ft.Dropdown(
+            label="Режим",
+            options=[
+                ft.dropdown.Option("Лекция"),
+                ft.dropdown.Option("Практика"),
+                ft.dropdown.Option("Лабораторная")
+            ],
+            value="Лекция",
+            width=300
+        )
+        self.note_text = ft.TextField(
+            label="Текст заметки",
+            multiline=True,
+            width=300
+        )
+        add_button = ft.ElevatedButton(
+            text="Добавить",
+            on_click=self.add_note
+        )
+
+        return ft.Column([
+            self.discipline_dropdown,
+            self.mode_dropdown,
+            self.note_text,
+            add_button
+        ], alignment=ft.MainAxisAlignment.CENTER)

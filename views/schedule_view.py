@@ -9,18 +9,43 @@ import pytz
 from plyer import notification
 from bs4 import BeautifulSoup
 
+BELL_SCHEDULE = {
+    "08:30": ["8:30–9:15", "9:20–10:05"],  # 1 пара
+    "10:15": ["10:15–11:00", "11:05–11:50"],  # 2 пара
+    "12:00": ["12:00–12:45", "12:50–13:35"],  # 3 пара
+    "14:05": ["14:05–14:50", "14:55–15:40"],  # 4 пара
+    "15:50": ["15:50–16:35", "16:40–17:25"],  # 5 пара
+    "17:35": ["17:35–18:20", "18:25–19:10"],  # 6 пара
+    "19:15": ["19:15–20:00", "20:05–20:50"],  # 7 пара
+    "20:55": ["20:55–21:40", "21:45–22:30"]  # 8 пара
+}
+
 class ScheduleTab:
-    def __init__(self, page: ft.Page, app):
+    def __init__(self, page: ft.Page):
         self.page = page
-        self.app = app
-        self.group_id = None
-        self.schedules = []
-        self.previous_schedules = []
-        self.selected_period = "Сегодня"
-        self.schedule_output = ft.Column(scroll=ft.ScrollMode.AUTO)
         self.schedules_file = "schedules.json"
         self.previous_schedules_file = "previous_schedules.json"
-        self.load_previous_schedules()
+        self.schedules = []
+        self.group_id = None
+        self.selected_period = "Сегодня"
+        self.schedule_output = ft.Column(scroll=ft.ScrollMode.AUTO)
+        self._cached_disciplines = None  # Кэш для дисциплин
+
+    def get_unique_disciplines(self) -> List[str]:
+        if self._cached_disciplines is not None:
+            return self._cached_disciplines
+        disciplines = set()
+        for schedule in self.schedules:
+            if "error" in schedule:
+                continue
+            for month in schedule.get("Month", []):
+                for day in month.get("Sched", []):
+                    for lesson in day.get("mainSchedule", []):
+                        subj_name = lesson.get("SubjName")
+                        if subj_name:
+                            disciplines.add(subj_name)
+        self._cached_disciplines = sorted(list(disciplines))
+        return self._cached_disciplines
 
     def load_local_schedules(self) -> List[Dict]:
         """Загрузка расписания из локального файла"""
@@ -43,12 +68,15 @@ class ScheduleTab:
     def save_schedules(self):
         """Сохранение расписания в локальный файл"""
         try:
-            # Проверяем, что self.schedules является списком
             if not isinstance(self.schedules, list):
                 print(f"Error: self.schedules is not a list: {type(self.schedules)}")
                 self.schedules = []
             with open(self.schedules_file, "w", encoding="utf-8") as f:
                 json.dump(self.schedules, f, ensure_ascii=False, indent=4)
+            # Сохраняем последнее валидное расписание
+            if any(self.validate_schedule(sched) for sched in self.schedules):
+                with open("last_valid_schedules.json", "w", encoding="utf-8") as f:
+                    json.dump(self.schedules, f, ensure_ascii=False, indent=4)
         except Exception as e:
             print(f"Error: Failed to save schedules to {self.schedules_file}: {e}")
 
@@ -127,47 +155,50 @@ class ScheduleTab:
     def validate_schedule(self, schedule: Dict) -> bool:
         """Проверка структуры расписания"""
         if "error" in schedule:
+            print(f"Validation failed: {schedule['error']}")
             return False
         if not schedule.get("Month"):
+            print("Validation failed: No 'Month' key in schedule")
             return False
         for month in schedule["Month"]:
             if not month.get("Sched"):
+                print("Validation failed: No 'Sched' key in month")
                 return False
             for day in month["Sched"]:
                 if not day.get("datePair") or not day.get("mainSchedule"):
+                    print(f"Validation failed: Invalid day structure: {day}")
                     return False
                 for lesson in day["mainSchedule"]:
-                    if not lesson.get("Dis") or not lesson.get("timeStart"):
+                    if not lesson.get("SubjName") or not lesson.get("TimeStart"):
+                        print(f"Validation failed: Invalid lesson structure: {lesson}")
                         return False
         return True
 
     async def load_schedule_for_group(self, group_id: str):
+        """Загружаем расписание для выбранной группы"""
         self.group_id = group_id
         self.schedules = self.load_local_schedules()
         if self.schedules and any(self.validate_schedule(sched) for sched in self.schedules):
             print("Loaded schedules from local file")
-            await self.display_schedules()
             self.page.run_task(self.schedule_daily_check)
             return
 
         self.schedules = []
         try:
-            url = f"https://ursei.su/asu/ssched.php?group={group_id}"
+            url = f"https://api.ursei.su/public/schedule/rest/GetGsSched?grpid={group_id}"
             response = requests.get(url, timeout=5)
-            print(
-                f"API response for group {group_id}: {response.status_code} - {response.text[:1000]}")  # Логируем больше данных
-            with open("api_response.html", "w", encoding="utf-8") as f:  # Сохраняем ответ для анализа
-                f.write(response.text)
+            print(f"API response for group {group_id}: {response.status_code} - {response.text[:1000]}")
             if response.status_code == 200 and response.text.strip():
                 try:
                     schedule = response.json()
-                except ValueError:
-                    schedule = self.parse_html_schedule(response.text)
-                if self.validate_schedule(schedule):
-                    self.schedules.append(schedule)
-                else:
-                    print(f"Invalid schedule structure for group {group_id}")
-                    self.schedules.append({"error": f"Некорректная структура расписания для группы {group_id}"})
+                    if self.validate_schedule(schedule):
+                        self.schedules.append(schedule)
+                    else:
+                        print(f"Invalid schedule structure for group {group_id}: {schedule}")
+                        self.schedules.append({"error": f"Некорректная структура расписания для группы {group_id}"})
+                except ValueError as e:
+                    print(f"Failed to parse JSON for group {group_id}: {e}")
+                    self.schedules.append({"error": f"Ошибка парсинга JSON: {e}"})
             else:
                 print(f"Invalid response for group {group_id}: {response.status_code}")
                 self.schedules.append({"error": f"Не удалось загрузить расписание для группы {group_id}"})
@@ -176,7 +207,13 @@ class ScheduleTab:
             self.schedules.append({"error": f"Ошибка загрузки расписания: {e}"})
 
         self.save_schedules()
-        await self.display_schedules()
+        if all("error" in sched for sched in self.schedules):
+            self.page.snack_bar = ft.SnackBar(
+                ft.Text("Не удалось загрузить расписание. Проверьте подключение или выберите другую группу."),
+                duration=5000
+            )
+            self.page.snack_bar.open = True
+            self.page.update()
         self.page.run_task(self.schedule_daily_check)
 
     async def refresh_schedules(self):
@@ -299,7 +336,7 @@ class ScheduleTab:
             await self.refresh_schedules()
 
     def get_unique_disciplines(self) -> List[str]:
-        """Получение уникальных дисциплин из загруженного расписания"""
+        """Получаем уникальные дисциплины из расписания"""
         disciplines = set()
         for schedule in self.schedules:
             if "error" in schedule:
@@ -307,9 +344,9 @@ class ScheduleTab:
             for month in schedule.get("Month", []):
                 for day in month.get("Sched", []):
                     for lesson in day.get("mainSchedule", []):
-                        discipline = lesson.get("Dis", "")
-                        if discipline:
-                            disciplines.add(discipline)
+                        subj_name = lesson.get("SubjName")
+                        if subj_name:
+                            disciplines.add(subj_name)
         return sorted(list(disciplines))
 
     def get_next_lesson_date(self, discipline: str, mode: str) -> datetime.date:
@@ -432,110 +469,125 @@ class ScheduleTab:
             return ft.Text(f"Ошибка дня: {str(ex)}", color="red")
 
     async def display_schedules(self):
-        """Отображение расписания на основе выбранного периода"""
+        """Отображаем расписание для выбранного периода"""
         print(f"Clearing schedule_output, current controls: {len(self.schedule_output.controls)}")
         self.schedule_output.controls.clear()
-        current_date = datetime.date.today()
-        tomorrow = current_date + datetime.timedelta(days=1)
-        all_day_cards = []
 
-        print(f"Displaying schedules for period: {self.selected_period}")
+        if not self.schedules:
+            self.schedule_output.controls.append(ft.Text("Нет данных для отображения"))
+            print("No schedules to display")
+            self.page.update()
+            return
 
+        today = datetime.datetime.now()
+        today_date = today.date()
+        current_time = today.time()
+        start_of_week = today_date - datetime.timedelta(days=today_date.weekday())
+        end_of_week = start_of_week + datetime.timedelta(days=6)
+
+        cards = []
         for schedule in self.schedules:
             if "error" in schedule:
-                self.schedule_output.controls.append(
-                    ft.Text(f"Ошибка: {schedule['error']}", color="red")
-                )
+                self.schedule_output.controls.append(ft.Text(schedule["error"]))
                 continue
-
-            group_column = ft.Column()
-
-            if not schedule.get("Month"):
-                self.schedule_output.controls.append(
-                    ft.Text("Нет данных", color="orange")
-                )
-                continue
-
             for month in schedule.get("Month", []):
                 for day in month.get("Sched", []):
-                    date_str = day.get("datePair", "")
-                    if not date_str:
-                        print("Skipping empty date")
-                        continue
-
+                    date_pair = day.get("datePair", "")
                     try:
-                        day_date = datetime.datetime.strptime(date_str, "%d.%m.%Y").date()
-                    except ValueError as ve:
-                        print(f"Invalid date format: {date_str}, error: {ve}")
+                        day_date = datetime.datetime.strptime(date_pair, "%d.%m.%Y").date()
+                    except ValueError:
+                        print(f"Invalid date format: {date_pair}")
                         continue
 
-                    if self.selected_period == "Сегодня" and day_date != current_date:
+                    # Фильтрация по периоду
+                    if self.selected_period == "Сегодня" and day_date != today_date:
                         continue
-                    elif self.selected_period == "Неделя" and not (0 <= (day_date - current_date).days < 7):
+                    elif self.selected_period == "Неделя" and (day_date < start_of_week or day_date > end_of_week):
                         continue
                     elif self.selected_period == "Месяц" and (
-                            day_date.month != current_date.month or day_date.year != current_date.year):
+                            day_date < today_date or day_date > today_date + datetime.timedelta(days=30)):
                         continue
-                    elif self.selected_period == "Все":
-                        pass
+
+                    if self.selected_period == "Сегодня":
+                        # Режим "Сегодня" — отдельные контейнеры для каждой пары
+                        for lesson in day.get("mainSchedule", []):
+                            time_start = lesson.get("TimeStart", "")
+                            try:
+                                lesson_time = datetime.datetime.strptime(time_start, "%H:%M").time()
+                            except ValueError:
+                                print(f"Invalid time format: {time_start}")
+                                continue
+
+                            # Определяем статус пары
+                            is_past = day_date < today_date or (day_date == today_date and lesson_time < current_time)
+                            is_current = (day_date == today_date and
+                                          lesson_time <= current_time and
+                                          lesson_time >= (datetime.datetime.combine(today_date,
+                                                                                    current_time) - datetime.timedelta(
+                                        minutes=90)).time())
+                            color = "red" if is_past else "green" if is_current else "blue"
+
+                            # Расписание звонков для текущей пары
+                            bell_times = BELL_SCHEDULE.get(time_start, ["", ""]) if is_current else ["", ""]
+                            time_display = f"{time_start} – {bell_times[0]} / {bell_times[1]}" if is_current else time_start
+
+                            lesson_card = ft.Card(
+                                content=ft.Container(
+                                    content=ft.Column([
+                                        ft.Container(
+                                            content=ft.CircleAvatar(bgcolor=color, radius=10),
+                                            alignment=ft.alignment.top_left,
+                                            margin=ft.margin.only(bottom=5)
+                                        ),
+                                        ft.Text(f"{time_display}", weight="bold", size=16),
+                                        ft.Text(f"{lesson.get('SubjName', '')} ({lesson.get('LoadKindSN', '')})",
+                                                size=14),
+                                        ft.Text(f"Ауд: {lesson.get('Aud', '')}", size=12),
+                                        ft.Text(f"Преп: {lesson.get('FIO', '')}", size=12)
+                                    ], spacing=5),
+                                    padding=15,
+                                    margin=10
+                                ),
+                                elevation=2,
+                                shape=ft.RoundedRectangleBorder(radius=10)
+                            )
+                            cards.append(lesson_card)
                     else:
-                        print(f"Unknown period: {self.selected_period}")
-                        continue
+                        # Другие режимы — карточка на день
+                        day_card = ft.Card(
+                            content=ft.Container(
+                                content=ft.Column([
+                                    ft.Text(f"{date_pair} ({day.get('dayWeek', '')})", weight="bold"),
+                                    *[
+                                        ft.Text(
+                                            f"{lesson.get('TimeStart', '')} - {lesson.get('SubjName', '')} ({lesson.get('LoadKindSN', '')}) "
+                                            f"Ауд: {lesson.get('Aud', '')}, Преп: {lesson.get('FIO', '')}"
+                                        )
+                                        for lesson in day.get("mainSchedule", [])
+                                    ]
+                                ]),
+                                padding=10
+                            ),
+                            key=date_pair,
+                            color="red" if day_date < today_date else "green" if day_date == today_date else "blue"
+                        )
+                        cards.append(day_card)
 
-                    print(f"Adding day: {date_str} for period: {self.selected_period}")
+        self.schedule_output.controls.extend(cards)
+        print(f"Total cards added: {len(cards)}")
 
-                    highlight_current_pair = (self.selected_period == "Сегодня")
-                    force_blue = (self.selected_period == "Неделя" and day_date == tomorrow)
+        if not cards:
+            self.schedule_output.controls.append(ft.Text("Нет занятий для выбранного периода"))
 
-                    day_card = self.create_day_card(day, current_date, tomorrow, highlight_current_pair, force_blue)
-                    all_day_cards.append((day_card, date_str))
-                    group_column.controls.append(day_card)
-
-            if group_column.controls:
-                self.schedule_output.controls.append(
-                    ft.Container(content=group_column, padding=10, bgcolor="#f9f9f9", border_radius=10, margin=5)
-                )
-            else:
-                self.schedule_output.controls.append(
-                    ft.Text("Нет расписания в выбранном периоде", color="orange")
-                )
-
-        if not self.schedule_output.controls:
-            self.schedule_output.controls.append(
-                ft.Text("Нет расписания для выбранного периода", color="orange")
-            )
-
-        print(f"Total cards added: {len(all_day_cards)}")
+        self.page.update()
         print(f"Schedule output controls after update: {len(self.schedule_output.controls)}")
 
-        self.schedule_output.update()
-        self.page.update()
-
-        print(f"Attempting to scroll to current date: {current_date.strftime('%d.%m.%Y')}")
-        if all_day_cards:
-            current_date_str = current_date.strftime("%d.%m.%Y")
-            current_card_key = f"date_{current_date_str}"
+        # Прокрутка к текущей дате
+        if self.selected_period in ["Сегодня", "Неделя"] and cards:
             try:
-                await asyncio.sleep(0.5)
-                self.page.update()
-                print(f"Scrolling to card with key: {current_card_key}")
-                self.page.scroll_to(key=current_card_key, duration=1000)
-            except AttributeError as e:
-                print(f"Error: scroll_to with key not supported, falling back to index-based scrolling: {e}")
-                card_index = next((i for i, (_, date) in enumerate(all_day_cards) if date == current_date_str), -1)
-                if card_index >= 0:
-                    estimated_offset = card_index * 150 + 50
-                    print(f"Scrolling to estimated offset: {estimated_offset}")
-                    self.page.scroll_to(offset=estimated_offset, duration=1000)
-                else:
-                    print("Current date card not found, scrolling to top")
-                    self.page.scroll_to(offset=0, duration=1000)
+                self.schedule_output.scroll_to(key=today_date.strftime("%d.%m.%Y"), duration=1000)
             except Exception as e:
-                print(f"Error during scroll attempt: {e}")
-                self.page.scroll_to(offset=0, duration=1000)
-        else:
-            print("No cards to scroll to, scrolling to top")
-            self.page.scroll_to(offset=0, duration=1000)
+                print(f"Scroll error: {e}")
 
     def build(self):
         """Создаём интерфейс вкладки расписания"""
@@ -548,7 +600,6 @@ class ScheduleTab:
                 ft.dropdown.Option("Все")
             ],
             value=self.selected_period,
-            width=200,
             on_change=lambda e: self.page.run_task(self.update_period, e.control.value)
         )
 
@@ -556,7 +607,7 @@ class ScheduleTab:
             ft.Row([
                 period_dropdown
             ], alignment=ft.MainAxisAlignment.CENTER),
-            self.schedule_output
+            self.schedule_output  # Убедитесь, что schedule_output включен
         ], scroll=ft.ScrollMode.AUTO)
 
     async def update_period(self, period: str):

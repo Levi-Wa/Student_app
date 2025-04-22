@@ -8,14 +8,14 @@ class App:
     def __init__(self, page: ft.Page):
         self.page = page
         self.page.title = "Студенческое приложение"
+        self.page.theme_mode = ft.ThemeMode.LIGHT
         self.page.window_width = 400
         self.page.window_height = 800
-        self.page.theme_mode = ft.ThemeMode.LIGHT
         self.settings = {}
-        self.schedule_tab = ScheduleTab(self.page, self)
-        self.notes_tab = NotesView(self.page, self.schedule_tab, self)
-        self.settings_tab = SettingsView(self.page, self.schedule_tab, self)
-        self.group_selection = GroupSelectionView(self.page, self.schedule_tab, self.show_main_view)
+        self.schedule_tab = ScheduleTab(page)
+        self.notes_tab = NotesView(page, self.schedule_tab)
+        self.group_selection_view = GroupSelectionView(page, self.schedule_tab, self.show_main_view)
+        self.settings_tab = SettingsView(page, self, self.schedule_tab, self.group_selection_view)
         self.show_group_selection()
 
     def show_group_selection(self):
@@ -43,8 +43,8 @@ class App:
                     ft.Tabs(
                         selected_index=0,
                         tabs=[
-                            ft.Tab(text="Расписание", content=self.schedule_tab.build()),
                             ft.Tab(text="Заметки", content=self.notes_tab.ui_content),
+                            ft.Tab(text="Расписание", content=self.schedule_tab.build()),
                             ft.Tab(text="Настройки", content=self.settings_tab.build())
                         ],
                         expand=True
@@ -53,6 +53,8 @@ class App:
             )
         )
         self.page.update()
+        if self.schedule_tab.group_id:  # Проверяем, выбрана ли группа
+            self.page.run_task(self.schedule_tab.display_schedules)
 
 def main(page: ft.Page):
     App(page)
