@@ -39,6 +39,14 @@ class SettingsView:
         """Показывает диалог подтверждения перед сменой группы"""
         def confirm_change(e):
             try:
+                # Очищаем файл schedules.json перед сменой группы
+                try:
+                    with open("schedules.json", "w", encoding="utf-8") as f:
+                        json.dump([], f)
+                    logging.info("Cleared schedules.json before changing group")
+                except Exception as err:
+                    logging.error(f"Error clearing schedules.json: {err}")
+
                 logging.info("Switching to group selection")
                 self.app.settings.pop("group_id", None)
                 self.app.save_settings()

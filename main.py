@@ -18,9 +18,10 @@ class App:
         self.settings = {}
         self.load_settings()
         self.schedule_tab = ScheduleTab(page)
-        self.notes_tab = NotesView(page, self.schedule_tab, self)
         self.group_selection_view = GroupSelectionView(page, self.schedule_tab, self.show_main_view, self)
-        self.settings_tab = SettingsView(page, self, self.schedule_tab, self.group_selection_view, self.notes_tab)
+        self.notes_tab = None
+        self.settings_tab = None
+        self.current_tab = "schedule"  # Текущая вкладка по умолчанию
         if self.settings.get("group_id"):
             self.schedule_tab.group_id = self.settings["group_id"]
             self.page.run_task(self.show_main_view)
@@ -59,30 +60,50 @@ class App:
         """Показываем основной интерфейс после выбора группы"""
         import logging
         self.page.views.clear()
-        # Инициализируем интерфейс заметок без формы
-        self.notes_tab.ui_content.controls.clear()
-        self.notes_tab.ui_content.controls.append(self.notes_tab.notes_list)
+        self.notes_tab = NotesView(self.page, self.schedule_tab, self)
+        self.settings_tab = SettingsView(self.page, self, self.schedule_tab, self.group_selection_view, self.notes_tab)
+
+        # Контейнер для содержимого текущей вкладки
+        content_container = ft.Container(content=self.schedule_tab.build())
+
+        def on_tab_change(e):
+            selected_tab = e.control.selected_index
+            if selected_tab == 0:
+                self.current_tab = "notes"
+                content_container.content = self.notes_tab.ui_content
+            elif selected_tab == 1:
+                self.current_tab = "schedule"
+                content_container.content = self.schedule_tab.build()
+            elif selected_tab == 2:
+                self.current_tab = "settings"
+                content_container.content = self.settings_tab.build()
+            self.page.update()
+
+        navigation_bar = ft.NavigationBar(
+            selected_index=1,  # По умолчанию выбрана вкладка "Расписание"
+            destinations=[
+                ft.NavigationBarDestination(icon=ft.Icons.NOTE, label="Заметки"),
+                ft.NavigationBarDestination(icon=ft.Icons.SCHEDULE, label="Расписание"),
+                ft.NavigationBarDestination(icon=ft.Icons.SETTINGS, label="Настройки"),
+            ],
+            on_change=on_tab_change
+        )
+
         self.page.views.append(
             ft.View(
                 "/",
                 [
-                    ft.Tabs(
-                        selected_index=1,  # Открываем вкладку "Расписание"
-                        tabs=[
-                            ft.Tab(text="Заметки", content=self.notes_tab.ui_content),
-                            ft.Tab(text="Расписание", content=self.schedule_tab.build()),
-                            ft.Tab(text="Настройки", content=self.settings_tab.build())
-                        ],
-                        expand=True
-                    )
-                ]
+                    content_container,
+                    navigation_bar
+                ],
+                vertical_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                padding=0
             )
         )
         self.page.update()
         logging.info("Main view displayed")
         if self.schedule_tab.group_id:
             await self.schedule_tab.load_schedule_for_group(self.schedule_tab.group_id)
-            # Пересоздаем форму заметок после загрузки расписания
             self.notes_tab.ui_content.controls.clear()
             self.notes_tab.ui_content.controls.append(self.notes_tab.build_note_form())
             self.notes_tab.ui_content.controls.append(self.notes_tab.notes_list)
