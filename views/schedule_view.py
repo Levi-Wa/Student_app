@@ -710,15 +710,23 @@ class ScheduleTab:
                 ft.dropdown.Option("Все")
             ],
             value=self.selected_period,
-            on_change=lambda e: self.page.run_task(self.update_period, e.control.value)
+            on_change=lambda e: self.page.run_task(self.update_period, e.control.value),
+            width=200
         )
 
-        return ft.Column([
-            ft.Row([
-                period_dropdown
-            ], alignment=ft.MainAxisAlignment.CENTER),
-            self.schedule_output
-        ], scroll=ft.ScrollMode.AUTO, expand=True)
+        layout = ft.Column(
+            controls=[
+                ft.Container(
+                    content=ft.Row([period_dropdown], alignment=ft.MainAxisAlignment.CENTER),
+                    padding=ft.padding.only(top=20, bottom=10)
+                ),
+                self.schedule_output
+            ],
+            scroll=ft.ScrollMode.AUTO,
+            expand=True
+        )
+
+        return layout
 
     async def update_period(self, period: str):
         """Обновляем период отображения"""

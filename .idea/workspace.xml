@@ -4,8 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="832981c1-d509-4487-a2be-a0358c132f17" name="Changes" comment="Alpha 0.45">
-      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
+    <list default="true" id="832981c1-d509-4487-a2be-a0358c132f17" name="Changes" comment="Alpha 0.46">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app.log" beforeDir="false" afterPath="$PROJECT_DIR$/app.log" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/views/notes_view.py" beforeDir="false" afterPath="$PROJECT_DIR$/views/notes_view.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/views/schedule_view.py" beforeDir="false" afterPath="$PROJECT_DIR$/views/schedule_view.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -94,8 +96,10 @@
       <workItem from="1745303994814" duration="80000" />
       <workItem from="1745330214119" duration="9554000" />
       <workItem from="1745405882054" duration="4462000" />
-      <workItem from="1745418399778" duration="2884000" />
-      <workItem from="1745428808382" duration="305000" />
+      <workItem from="1745418399778" duration="3892000" />
+      <workItem from="1745427055303" duration="1735000" />
+      <workItem from="1745429620277" duration="159000" />
+      <workItem from="1745429781635" duration="1113000" />
     </task>
     <task id="LOCAL-00001" summary="0.26">
       <option name="closed" value="true" />
@@ -257,7 +261,15 @@
       <option name="project" value="LOCAL" />
       <updated>1745418584958</updated>
     </task>
-    <option name="localTasksCounter" value="21" />
+    <task id="LOCAL-00021" summary="Alpha 0.46">
+      <option name="closed" value="true" />
+      <created>1745421474636</created>
+      <option name="number" value="00021" />
+      <option name="presentableId" value="LOCAL-00021" />
+      <option name="project" value="LOCAL" />
+      <updated>1745421474636</updated>
+    </task>
+    <option name="localTasksCounter" value="22" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -294,14 +306,15 @@
     <MESSAGE value="Alpha 0.43" />
     <MESSAGE value="Alpha 0.44" />
     <MESSAGE value="Alpha 0.45" />
-    <option name="LAST_COMMIT_MESSAGE" value="Alpha 0.45" />
+    <MESSAGE value="Alpha 0.46" />
+    <option name="LAST_COMMIT_MESSAGE" value="Alpha 0.46" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/student_app$main.coverage" NAME="main Coverage Results" MODIFIED="1745144007183" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/Student_app$notes_view.coverage" NAME="notes_view Coverage Results" MODIFIED="1745336652020" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/views" />
-    <SUITE FILE_PATH="coverage/Student_app$schedule_view.coverage" NAME="schedule_view Coverage Results" MODIFIED="1745237667457" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/views" />
+    <SUITE FILE_PATH="coverage/Student_app$schedule_view.coverage" NAME="schedule_view Coverage Results" MODIFIED="1745428071455" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/views" />
     <SUITE FILE_PATH="coverage/student_app$schedule_view.coverage" NAME="schedule_view Coverage Results" MODIFIED="1745136828156" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/views" />
-    <SUITE FILE_PATH="coverage/Student_app$main.coverage" NAME="main Coverage Results" MODIFIED="1745421176161" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Student_app$main.coverage" NAME="main Coverage Results" MODIFIED="1745430612767" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/Student_app_0_30$main.coverage" NAME="main Coverage Results" MODIFIED="1745296480009" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
 </project>

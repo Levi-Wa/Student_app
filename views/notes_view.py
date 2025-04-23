@@ -13,7 +13,7 @@ class NotesView:
         self.app = app
         self.notes_file = "notes.json"
         self.notes = self.load_notes()
-        self.ui_content = ft.Column()
+        self.ui_content = ft.Column(scroll=ft.ScrollMode.AUTO, expand=True)
         self.notes_list = ft.ListView(expand=True)
         self.ui_content.controls = [self.build_note_form(), self.notes_list]
         self.update_notes_list()
@@ -59,12 +59,15 @@ class NotesView:
             on_click=self.add_note
         )
 
-        return ft.Column([
-            self.discipline_dropdown,
-            self.mode_dropdown,
-            self.note_text,
-            add_button
-        ], alignment=ft.MainAxisAlignment.CENTER)
+        return ft.Container(
+            content=ft.Column([
+                self.discipline_dropdown,
+                self.mode_dropdown,
+                self.note_text,
+                add_button
+            ], alignment=ft.MainAxisAlignment.CENTER),
+            padding=ft.padding.only(top=30)
+        )
 
     def get_next_lesson_date(self, discipline: str, mode: str, current_valid_until: str = None) -> str:
         """Находим дату следующего занятия по дисциплине и режиму после текущей даты или valid_until"""
