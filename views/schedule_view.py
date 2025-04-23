@@ -6,8 +6,10 @@ import os
 from typing import List, Dict
 import asyncio
 import pytz
+import logging
 from plyer import notification
 from bs4 import BeautifulSoup
+
 
 BELL_SCHEDULE = {
     "08:30": ["8:30–9:15", "9:20–10:05"],  # 1 пара
@@ -28,10 +30,18 @@ class ScheduleTab:
         self.schedules = []
         self.group_id = None
         self.selected_period = "Сегодня"
-        # Заменяем Column на ListView для лучшей поддержки прокрутки
-        self.schedule_output = ft.ListView(expand=True, spacing=10, padding=10)
+        self.schedule_output = ft.ListView(
+            expand=True,
+            spacing=10,
+            padding=10,
+            auto_scroll=False,
+            on_scroll=self.on_scroll  # Обработчик событий прокрутки
+        )
         self._cached_disciplines = None
         self._cached_disciplines_timestamp = 0
+
+    def on_scroll(self, e: ft.ScrollEvent):
+        logging.info(f"Scroll event: delta={e.delta_y}, position={self.schedule_output.scroll_offset}")
 
     def get_unique_disciplines(self) -> List[str]:
         """Получаем уникальные дисциплины из расписания"""
@@ -60,8 +70,6 @@ class ScheduleTab:
         return self._cached_disciplines
 
     def load_local_schedules(self) -> List[Dict]:
-        import logging
-        import json
         if os.path.exists(self.schedules_file):
             try:
                 with open(self.schedules_file, "r", encoding="utf-8") as f:
@@ -488,7 +496,6 @@ class ScheduleTab:
             return ft.Text(f"Ошибка дня: {str(ex)}", color="red")
 
     async def display_schedules(self):
-        """Отображаем расписание для выбранного периода"""
         import logging
         import datetime
         import flet as ft
@@ -525,7 +532,6 @@ class ScheduleTab:
                         logging.error(f"Invalid date format: {date_pair}")
                         continue
 
-                    # Фильтрация по периоду
                     if self.selected_period == "Сегодня" and day_date != today_date:
                         continue
                     elif self.selected_period == "Неделя" and (day_date < start_of_week or day_date > end_of_week):
@@ -534,9 +540,8 @@ class ScheduleTab:
                         continue
 
                     if self.selected_period == "Сегодня":
-                        # Режим "Сегодня" — отдельные контейнеры для каждой пары
                         for lesson in day.get("mainSchedule", []):
-                            time_start = lesson.get("TimeStart", "")
+                            time_start = lesson.get("TimeStart", "") or lesson.get("timeStart", "")
                             try:
                                 lesson_time = datetime.datetime.strptime(time_start, "%H:%M").time()
                             except ValueError:
@@ -562,21 +567,22 @@ class ScheduleTab:
                                             alignment=ft.alignment.top_left
                                         ),
                                         ft.Text(f"{time_display}", weight="bold", size=16),
-                                        ft.Text(f"{lesson.get('SubjName', '')} ({lesson.get('LoadKindSN', '')})",
-                                                size=14),
-                                        ft.Text(f"Ауд: {lesson.get('Aud', '')}", size=12),
-                                        ft.Text(f"Преп: {lesson.get('FIO', '')}", size=12)
+                                        ft.Text(
+                                            f"{lesson.get('SubjName', '') or lesson.get('Dis', '')} ({lesson.get('LoadKindSN', '') or lesson.get('Type', '')})",
+                                            size=14),
+                                        ft.Text(f"Ауд: {lesson.get('Aud', '') or lesson.get('Room', '')}", size=12),
+                                        ft.Text(f"Преп: {lesson.get('FIO', '') or lesson.get('Teacher', '')}", size=12)
                                     ], spacing=5),
                                     padding=15,
                                     margin=10
                                 ),
                                 elevation=2,
                                 shape=ft.RoundedRectangleBorder(radius=10),
-                                color="white"
+                                color="white",
+                                key=f"lesson_{date_pair}_{time_start}"  # Уникальный ключ для пары
                             )
                             cards.append(lesson_card)
                     else:
-                        # Режимы "Неделя", "Месяц", "Все" — карточка на день
                         is_past = day_date < today_date
                         is_current = day_date == today_date
                         is_tomorrow = day_date == tomorrow_date
@@ -602,14 +608,17 @@ class ScheduleTab:
                                     ft.Column([
                                         ft.ListTile(
                                             leading=ft.CircleAvatar(
-                                                content=ft.Text(lesson.get("TimeStart", "")[:5]),
+                                                content=ft.Text(
+                                                    lesson.get("TimeStart", "")[:5] or lesson.get("timeStart", "")[:5]),
                                                 bgcolor=ft.colors.BLUE_100
                                             ),
-                                            title=ft.Text(lesson.get("SubjName", ""), weight="bold"),
+                                            title=ft.Text(lesson.get("SubjName", "") or lesson.get("Dis", ""),
+                                                          weight="bold"),
                                             subtitle=ft.Column([
-                                                ft.Text(f"Тип: {lesson.get('LoadKindSN', '')}"),
-                                                ft.Text(f"Ауд: {lesson.get('Aud', '')}"),
-                                                ft.Text(f"Преп: {lesson.get('FIO', '')}")
+                                                ft.Text(
+                                                    f"Тип: {lesson.get('LoadKindSN', '') or lesson.get('Type', '')}"),
+                                                ft.Text(f"Ауд: {lesson.get('Aud', '') or lesson.get('Room', '')}"),
+                                                ft.Text(f"Преп: {lesson.get('FIO', '') or lesson.get('Teacher', '')}")
                                             ])
                                         )
                                         for lesson in day.get("mainSchedule", [])
@@ -621,7 +630,7 @@ class ScheduleTab:
                             elevation=4,
                             shape=ft.RoundedRectangleBorder(radius=12),
                             color=ft.colors.WHITE,
-                            key=f"day_{date_pair}"  # Уникальный ключ для прокрутки
+                            key=f"day_{date_pair}"
                         )
                         cards.append(day_card)
 
@@ -630,24 +639,84 @@ class ScheduleTab:
 
         if not cards:
             self.schedule_output.controls.append(ft.Text("Нет занятий для выбранного периода"))
+            logging.info("No cards added, showing placeholder")
 
         self.page.update()
         logging.info(f"Schedule output controls after update: {len(self.schedule_output.controls)}")
 
-        # Прокрутка к текущему дню
-        if self.selected_period in ["Сегодня", "Неделя", "Месяц", "Все"] and cards:
-            target_key = f"day_{today_date.strftime('%d.%m.%Y')}"
-            if any(card.key == target_key for card in cards if hasattr(card, 'key')):
-                try:
-                    self.schedule_output.scroll_to(key=target_key, duration=1000)
-                    logging.info(f"Scrolled to current day: {target_key}")
-                except Exception as e:
-                    logging.error(f"Scroll error: {e}")
+        # Прокрутка к текущему дню или ближайшему
+        if cards:
+            if self.selected_period == "Сегодня":
+                target_lesson_key = None
+                earliest_future_lesson_key = None
+                earliest_future_time = None
+                for card in cards:
+                    if hasattr(card, 'key') and card.key.startswith("lesson_"):
+                        try:
+                            lesson_time_str = card.key.split('_')[-1]
+                            lesson_time = datetime.datetime.strptime(lesson_time_str, "%H:%M").time()
+                            lesson_datetime = datetime.datetime.combine(today_date, lesson_time)
+                            if lesson_datetime >= datetime.datetime.now() - datetime.timedelta(minutes=90):
+                                if earliest_future_time is None or lesson_datetime < earliest_future_time:
+                                    earliest_future_time = lesson_datetime
+                                    earliest_future_lesson_key = card.key
+                            if lesson_datetime <= datetime.datetime.now() <= lesson_datetime + datetime.timedelta(
+                                    minutes=90):
+                                target_lesson_key = card.key
+                                break
+                        except ValueError:
+                            logging.error(f"Invalid lesson time format in key: {card.key}")
+                            continue
+                scroll_key = target_lesson_key or earliest_future_lesson_key
+                if scroll_key:
+                    await asyncio.sleep(0.3)  # Дать время на рендеринг
+                    try:
+                        self.schedule_output.scroll_to(key=scroll_key, duration=1000)
+                        logging.info(f"Scrolled to lesson: {scroll_key}")
+                    except Exception as e:
+                        logging.error(f"Scroll error: {e}")
+                else:
+                    logging.info("Scroll skipped: No current or future lessons found")
             else:
-                logging.info(f"Scroll skipped: No card found for {target_key}")
+                target_key = f"day_{today_date.strftime('%d.%m.%Y')}"
+                available_keys = [card.key for card in cards if hasattr(card, 'key')]
+                logging.info(f"Available card keys: {available_keys}")
+
+                if target_key in available_keys:
+                    await asyncio.sleep(0.3)
+                    try:
+                        self.schedule_output.scroll_to(key=target_key, duration=1000)
+                        logging.info(f"Scrolled to current day: {target_key}")
+                    except Exception as e:
+                        logging.error(f"Scroll error: {e}")
+                else:
+                    # Найти ближайшую дату
+                    closest_date_key = None
+                    min_diff = float('inf')
+                    for card in cards:
+                        if hasattr(card, 'key') and card.key.startswith("day_"):
+                            try:
+                                card_date = datetime.datetime.strptime(card.key[4:], "%d.%m.%Y").date()
+                                diff = abs((card_date - today_date).days)
+                                if diff < min_diff:
+                                    min_diff = diff
+                                    closest_date_key = card.key
+                            except ValueError:
+                                logging.error(f"Invalid date format in key: {card.key}")
+                                continue
+                    if closest_date_key:
+                        await asyncio.sleep(0.3)
+                        try:
+                            self.schedule_output.scroll_to(key=closest_date_key, duration=1000)
+                            logging.info(f"Scrolled to closest day: {closest_date_key}")
+                        except Exception as e:
+                            logging.error(f"Scroll error: {e}")
+                    else:
+                        logging.info("Scroll skipped: No valid date keys found")
+        else:
+            logging.info("Scroll skipped: No cards to scroll to")
 
     def build(self):
-        """Создаём интерфейс вкладки расписания"""
         period_dropdown = ft.Dropdown(
             label="Период",
             options=[
@@ -665,7 +734,7 @@ class ScheduleTab:
                 period_dropdown
             ], alignment=ft.MainAxisAlignment.CENTER),
             self.schedule_output
-        ], scroll=ft.ScrollMode.AUTO)
+        ], scroll=ft.ScrollMode.AUTO, expand=True)
 
     async def update_period(self, period: str):
         """Обновляем период отображения"""
