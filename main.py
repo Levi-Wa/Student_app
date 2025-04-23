@@ -57,14 +57,16 @@ class App:
         self.page.update()
 
     async def show_main_view(self):
-        """Показываем основной интерфейс после выбора группы"""
         import logging
         self.page.views.clear()
         self.notes_tab = NotesView(self.page, self.schedule_tab, self)
         self.settings_tab = SettingsView(self.page, self, self.schedule_tab, self.group_selection_view, self.notes_tab)
 
-        # Контейнер для содержимого текущей вкладки
-        content_container = ft.Container(content=self.schedule_tab.build())
+        content_container = ft.Container(
+            content=self.schedule_tab.build(),
+            expand=True,
+            padding=0
+        )
 
         def on_tab_change(e):
             selected_tab = e.control.selected_index
@@ -80,7 +82,7 @@ class App:
             self.page.update()
 
         navigation_bar = ft.NavigationBar(
-            selected_index=1,  # По умолчанию выбрана вкладка "Расписание"
+            selected_index=1,
             destinations=[
                 ft.NavigationBarDestination(icon=ft.Icons.NOTE, label="Заметки"),
                 ft.NavigationBarDestination(icon=ft.Icons.SCHEDULE, label="Расписание"),
@@ -97,7 +99,8 @@ class App:
                     navigation_bar
                 ],
                 vertical_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                padding=0
+                padding=0,
+                scroll=None
             )
         )
         self.page.update()
@@ -108,7 +111,7 @@ class App:
             self.notes_tab.ui_content.controls.append(self.notes_tab.build_note_form())
             self.notes_tab.ui_content.controls.append(self.notes_tab.notes_list)
             logging.info("Notes form rebuilt after schedule load")
-            self.page.run_task(self.schedule_tab.display_schedules)
+            await self.schedule_tab.display_schedules()  # Используем await вместо page.run_task
         self.page.update()
 
 def main(page: ft.Page):

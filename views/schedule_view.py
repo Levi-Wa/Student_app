@@ -28,6 +28,7 @@ class ScheduleTab:
         self.schedules_file = "schedules.json"
         self.previous_schedules_file = "previous_schedules.json"
         self.schedules = []
+        self.previous_schedules = []
         self.group_id = None
         self.selected_period = "Сегодня"
         self.schedule_output = ft.ListView(
@@ -35,7 +36,7 @@ class ScheduleTab:
             spacing=10,
             padding=10,
             auto_scroll=False,
-            on_scroll=self.on_scroll  # Обработчик событий прокрутки
+            on_scroll=self.on_scroll
         )
         self._cached_disciplines = None
         self._cached_disciplines_timestamp = 0
@@ -521,6 +522,7 @@ class ScheduleTab:
         cards = []
         for schedule in self.schedules:
             if "error" in schedule:
+                logging.error(f"Schedule error: {schedule['error']}")
                 self.schedule_output.controls.append(ft.Text(schedule["error"]))
                 continue
             for month in schedule.get("Month", []):
@@ -539,6 +541,7 @@ class ScheduleTab:
                     elif self.selected_period == "Месяц" and (day_date < start_of_month or day_date > end_of_month):
                         continue
 
+                    logging.info(f"Processing day: {date_pair}")
                     if self.selected_period == "Сегодня":
                         for lesson in day.get("mainSchedule", []):
                             time_start = lesson.get("TimeStart", "") or lesson.get("timeStart", "")
@@ -579,9 +582,10 @@ class ScheduleTab:
                                 elevation=2,
                                 shape=ft.RoundedRectangleBorder(radius=10),
                                 color="white",
-                                key=f"lesson_{date_pair}_{time_start}"  # Уникальный ключ для пары
+                                key=f"lesson_{date_pair}_{time_start}"
                             )
                             cards.append(lesson_card)
+                            logging.info(f"Added lesson card: {lesson_card.key}")
                     else:
                         is_past = day_date < today_date
                         is_current = day_date == today_date
@@ -633,6 +637,7 @@ class ScheduleTab:
                             key=f"day_{date_pair}"
                         )
                         cards.append(day_card)
+                        logging.info(f"Added day card: {day_card.key}")
 
         self.schedule_output.controls.extend(cards)
         logging.info(f"Total cards added: {len(cards)}")
@@ -644,77 +649,56 @@ class ScheduleTab:
         self.page.update()
         logging.info(f"Schedule output controls after update: {len(self.schedule_output.controls)}")
 
-        # Прокрутка к текущему дню или ближайшему
+        # Временно отключаем прокрутку для проверки отображения
+        self.page.update()
         if cards:
+            target_key = None
             if self.selected_period == "Сегодня":
-                target_lesson_key = None
-                earliest_future_lesson_key = None
-                earliest_future_time = None
                 for card in cards:
                     if hasattr(card, 'key') and card.key.startswith("lesson_"):
                         try:
                             lesson_time_str = card.key.split('_')[-1]
                             lesson_time = datetime.datetime.strptime(lesson_time_str, "%H:%M").time()
                             lesson_datetime = datetime.datetime.combine(today_date, lesson_time)
-                            if lesson_datetime >= datetime.datetime.now() - datetime.timedelta(minutes=90):
-                                if earliest_future_time is None or lesson_datetime < earliest_future_time:
-                                    earliest_future_time = lesson_datetime
-                                    earliest_future_lesson_key = card.key
                             if lesson_datetime <= datetime.datetime.now() <= lesson_datetime + datetime.timedelta(
                                     minutes=90):
-                                target_lesson_key = card.key
+                                target_key = card.key
                                 break
+                            if target_key is None and lesson_datetime >= datetime.datetime.now() - datetime.timedelta(
+                                    minutes=90):
+                                target_key = card.key
                         except ValueError:
                             logging.error(f"Invalid lesson time format in key: {card.key}")
                             continue
-                scroll_key = target_lesson_key or earliest_future_lesson_key
-                if scroll_key:
-                    await asyncio.sleep(0.3)  # Дать время на рендеринг
-                    try:
-                        self.schedule_output.scroll_to(key=scroll_key, duration=1000)
-                        logging.info(f"Scrolled to lesson: {scroll_key}")
-                    except Exception as e:
-                        logging.error(f"Scroll error: {e}")
-                else:
-                    logging.info("Scroll skipped: No current or future lessons found")
+                if target_key is None:
+                    target_key = cards[0].key if cards else None
             else:
                 target_key = f"day_{today_date.strftime('%d.%m.%Y')}"
-                available_keys = [card.key for card in cards if hasattr(card, 'key')]
-                logging.info(f"Available card keys: {available_keys}")
-
-                if target_key in available_keys:
-                    await asyncio.sleep(0.3)
-                    try:
-                        self.schedule_output.scroll_to(key=target_key, duration=1000)
-                        logging.info(f"Scrolled to current day: {target_key}")
-                    except Exception as e:
-                        logging.error(f"Scroll error: {e}")
-                else:
-                    # Найти ближайшую дату
-                    closest_date_key = None
-                    min_diff = float('inf')
+                if target_key not in [card.key for card in cards if hasattr(card, 'key')]:
+                    min_future_diff = float('inf')
                     for card in cards:
                         if hasattr(card, 'key') and card.key.startswith("day_"):
                             try:
                                 card_date = datetime.datetime.strptime(card.key[4:], "%d.%m.%Y").date()
-                                diff = abs((card_date - today_date).days)
-                                if diff < min_diff:
-                                    min_diff = diff
-                                    closest_date_key = card.key
+                                if card_date >= today_date:
+                                    diff = (card_date - today_date).days
+                                    if diff < min_future_diff:
+                                        min_future_diff = diff
+                                        target_key = card.key
                             except ValueError:
                                 logging.error(f"Invalid date format in key: {card.key}")
                                 continue
-                    if closest_date_key:
-                        await asyncio.sleep(0.3)
-                        try:
-                            self.schedule_output.scroll_to(key=closest_date_key, duration=1000)
-                            logging.info(f"Scrolled to closest day: {closest_date_key}")
-                        except Exception as e:
-                            logging.error(f"Scroll error: {e}")
-                    else:
-                        logging.info("Scroll skipped: No valid date keys found")
-        else:
-            logging.info("Scroll skipped: No cards to scroll to")
+                    if target_key not in [card.key for card in cards if hasattr(card, 'key')]:
+                        target_key = cards[0].key if cards else None
+
+            if target_key:
+                try:
+                    self.schedule_output.scroll_to(key=target_key, duration=1000)
+                    logging.info(f"Scrolled to key: {target_key}")
+                except Exception as e:
+                    logging.error(f"Scroll error: {e}")
+            else:
+                logging.info("Scroll skipped: No valid target found")
 
     def build(self):
         period_dropdown = ft.Dropdown(
