@@ -59,15 +59,14 @@ class NotesView:
             on_click=self.add_note
         )
 
-        return ft.Container(
+        return ft.Container(padding=ft.padding.symmetric(horizontal=20,vertical=20),
             content=ft.Column([
                 self.discipline_dropdown,
                 self.mode_dropdown,
                 self.note_text,
                 add_button
-            ], alignment=ft.MainAxisAlignment.CENTER),
-            padding=ft.padding.only(top=30)
-        )
+            ], alignment=ft.MainAxisAlignment.CENTER)
+                            )
 
     def get_next_lesson_date(self, discipline: str, mode: str, current_valid_until: str = None) -> str:
         """Находим дату следующего занятия по дисциплине и режиму после текущей даты или valid_until"""

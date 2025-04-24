@@ -179,10 +179,12 @@ class SettingsView:
             on_change=self.toggle_theme
         )
 
-        return ft.Column([
+        return ft.Container(
+            padding=ft.padding.symmetric(horizontal=20),
+            content=ft.Column([
             self.schedule_notifications_switch,
             self.expiry_days_dropdown,
             change_group_button,
             report_issue_button,
             theme_switch
-        ], alignment=ft.MainAxisAlignment.CENTER)
+        ], alignment=ft.MainAxisAlignment.CENTER))

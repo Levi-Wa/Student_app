@@ -718,7 +718,7 @@ class ScheduleTab:
             controls=[
                 ft.Container(
                     content=ft.Row([period_dropdown], alignment=ft.MainAxisAlignment.CENTER),
-                    padding=ft.padding.only(top=20, bottom=10)
+                    padding=ft.padding.only(top=40, bottom=10)
                 ),
                 self.schedule_output
             ],
