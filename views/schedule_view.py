@@ -551,13 +551,14 @@ class ScheduleTab:
                                 logging.error(f"Invalid time format: {time_start}")
                                 continue
 
-                            is_past = day_date < today_date or (day_date == today_date and lesson_time < current_time)
                             is_current = (day_date == today_date and
                                           lesson_time <= current_time and
                                           lesson_time >= (datetime.datetime.combine(today_date,
                                                                                     current_time) - datetime.timedelta(
                                         minutes=90)).time())
-                            color = "red" if is_past else "green" if is_current else "blue"
+                            is_past = day_date < today_date or (
+                                        day_date == today_date and lesson_time < current_time and not is_current)
+                            color = "green" if is_current else "red" if is_past else "blue"
 
                             bell_times = BELL_SCHEDULE.get(time_start, ["", ""]) if is_current else ["", ""]
                             time_display = f"{time_start} – {bell_times[0]} / {bell_times[1]}" if is_current else time_start
@@ -614,7 +615,8 @@ class ScheduleTab:
                                             leading=ft.CircleAvatar(
                                                 content=ft.Text(
                                                     lesson.get("TimeStart", "")[:5] or lesson.get("timeStart", "")[:5]),
-                                                bgcolor=ft.colors.BLUE_100
+                                                bgcolor=ft.colors.BLUE_100,
+                                                radius=25
                                             ),
                                             title=ft.Text(lesson.get("SubjName", "") or lesson.get("Dis", ""),
                                                           weight="bold"),
