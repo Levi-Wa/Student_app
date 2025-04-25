@@ -1,0 +1,9 @@
+[project]
+name = "student_app"
+version = "0.49"
+description = "Студенческое приложение"
+authors = [{ name = "Levi" }]
+dependencies = ["flet"]
+
+[tool.flet]
+app-entrypoint = "main.py"
