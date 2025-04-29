@@ -11,7 +11,7 @@ class NotesView:
         self.page = page
         self.schedule_tab = schedule_tab
         self.app = app
-        self.notes_file = "notes.json"
+        self.notes_file = os.path.join(os.getenv("HOME", "."), "notes.json")
         self.notes = self.load_notes()
         self.ui_content = ft.Column(scroll=ft.ScrollMode.AUTO, expand=True)
         self.notes_list = ft.ListView(expand=True)

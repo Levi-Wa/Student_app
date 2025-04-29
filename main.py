@@ -29,18 +29,18 @@ class App:
             self.show_group_selection()
 
     def load_settings(self):
-        """Загрузка настроек"""
-        if os.path.exists("settings.json"):
+        settings_file = os.path.join(os.getenv("HOME", "."), "settings.json")
+        if os.path.exists(settings_file):
             try:
-                with open("settings.json", "r", encoding="utf-8") as f:
+                with open(settings_file, "r", encoding="utf-8") as f:
                     self.settings = json.load(f)
             except Exception as e:
                 logging.error(f"Error loading settings: {e}")
 
     def save_settings(self):
-        """Сохранение настроек"""
+        settings_file = os.path.join(os.getenv("HOME", "."), "settings.json")
         try:
-            with open("settings.json", "w", encoding="utf-8") as f:
+            with open(settings_file, "w", encoding="utf-8") as f:
                 json.dump(self.settings, f, ensure_ascii=False, indent=4)
         except Exception as e:
             logging.error(f"Error saving settings: {e}")

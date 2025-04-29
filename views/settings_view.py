@@ -12,7 +12,7 @@ class SettingsView:
         self.schedule_tab = schedule_tab
         self.group_selection_view = group_selection_view
         self.notes_tab = notes_tab
-        self.settings_file = "settings.json"
+        self.settings_file = os.path.join(os.getenv("HOME", "."), "settings.json")
         self.load_settings()
 
     def load_settings(self):

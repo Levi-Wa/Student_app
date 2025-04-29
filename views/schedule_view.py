@@ -10,27 +10,28 @@ import logging
 from plyer import notification
 from bs4 import BeautifulSoup
 
-
+# BELL_SCHEDULE остаётся без изменений
 BELL_SCHEDULE = {
-    "08:30": ["8:30–9:15", "9:20–10:05"],  # 1 пара
-    "10:15": ["10:15–11:00", "11:05–11:50"],  # 2 пара
-    "12:00": ["12:00–12:45", "12:50–13:35"],  # 3 пара
-    "14:05": ["14:05–14:50", "14:55–15:40"],  # 4 пара
-    "15:50": ["15:50–16:35", "16:40–17:25"],  # 5 пара
-    "17:35": ["17:35–18:20", "18:25–19:10"],  # 6 пара
-    "19:15": ["19:15–20:00", "20:05–20:50"],  # 7 пара
-    "20:55": ["20:55–21:40", "21:45–22:30"]  # 8 пара
+    "08:30": ["8:30–9:15", "9:20–10:05"],
+    "10:15": ["10:15–11:00", "11:05–11:50"],
+    "12:00": ["12:00–12:45", "12:50–13:35"],
+    "14:05": ["14:05–14:50", "14:55–15:40"],
+    "15:50": ["15:50–16:35", "16:40–17:25"],
+    "17:35": ["17:35–18:20", "18:25–19:10"],
+    "19:15": ["19:15–20:00", "20:05–20:50"],
+    "20:55": ["20:55–21:40", "21:45–22:30"]
 }
 
 class ScheduleTab:
     def __init__(self, page: ft.Page):
         self.page = page
-        self.schedules_file = "schedules.json"
-        self.previous_schedules_file = "previous_schedules.json"
+        self.schedules_file = os.path.join(os.getenv("HOME", "."), "schedules.json")
+        self.previous_schedules_file = os.path.join(os.getenv("HOME", "."), "previous_schedules.json")
         self.schedules = []
         self.previous_schedules = []
         self.group_id = None
         self.selected_period = "Сегодня"
+        self.last_schedule_update = None  # Время последнего обновления расписания
         self.schedule_output = ft.ListView(
             expand=True,
             spacing=10,
@@ -45,7 +46,7 @@ class ScheduleTab:
         logging.info(f"Scroll event: delta={e.delta_y}, position={self.schedule_output.scroll_offset}")
 
     def get_unique_disciplines(self) -> List[str]:
-        """Получаем уникальные дисциплины из расписания"""
+        # Без изменений
         import logging
         if self._cached_disciplines is not None and self._cached_disciplines_timestamp == id(self.schedules):
             logging.info("Returning cached disciplines")
@@ -71,6 +72,7 @@ class ScheduleTab:
         return self._cached_disciplines
 
     def load_local_schedules(self) -> List[Dict]:
+        # Модифицируем для загрузки времени последнего обновления
         if os.path.exists(self.schedules_file):
             try:
                 with open(self.schedules_file, "r", encoding="utf-8") as f:
@@ -78,12 +80,18 @@ class ScheduleTab:
                     if not content:
                         logging.warning(f"{self.schedules_file} is empty")
                         return []
-                    return json.loads(content)
+                    data = json.loads(content)
+                    # Проверяем, есть ли метаданные с временем обновления
+                    if isinstance(data, dict) and "last_update" in data:
+                        self.last_schedule_update = datetime.datetime.fromisoformat(data["last_update"])
+                        return data.get("schedules", [])
+                    return data
             except json.JSONDecodeError as e:
                 logging.error(f"Failed to parse {self.schedules_file}: {e}")
-                if os.path.exists("last_valid_schedules.json"):
+                last_valid_schedules = os.path.join(os.getenv("HOME", "."), "last_valid_schedules.json")
+                if os.path.exists(last_valid_schedules):
                     try:
-                        with open("last_valid_schedules.json", "r", encoding="utf-8") as f:
+                        with open(last_valid_schedules, "r", encoding="utf-8") as f:
                             return json.loads(f.read().strip())
                     except Exception as e:
                         logging.error(f"Error loading last valid schedules: {e}")
@@ -96,17 +104,23 @@ class ScheduleTab:
             if not isinstance(self.schedules, list):
                 print(f"Error: self.schedules is not a list: {type(self.schedules)}")
                 self.schedules = []
+            # Сохраняем с метаданными о времени обновления
+            data_to_save = {
+                "last_update": datetime.datetime.now().isoformat(),
+                "schedules": self.schedules
+            }
             with open(self.schedules_file, "w", encoding="utf-8") as f:
-                json.dump(self.schedules, f, ensure_ascii=False, indent=4)
+                json.dump(data_to_save, f, ensure_ascii=False, indent=4)
             # Сохраняем последнее валидное расписание
+            last_valid_schedules = os.path.join(os.getenv("HOME", "."), "last_valid_schedules.json")
             if any(self.validate_schedule(sched) for sched in self.schedules):
-                with open("last_valid_schedules.json", "w", encoding="utf-8") as f:
+                with open(last_valid_schedules, "w", encoding="utf-8") as f:
                     json.dump(self.schedules, f, ensure_ascii=False, indent=4)
         except Exception as e:
             print(f"Error: Failed to save schedules to {self.schedules_file}: {e}")
 
+    # Остальные методы до load_schedule_for_group остаются без изменений
     def load_previous_schedules(self):
-        """Загрузка предыдущего расписания"""
         if os.path.exists(self.previous_schedules_file):
             with open(self.previous_schedules_file, "r", encoding="utf-8") as f:
                 self.previous_schedules = json.load(f)
@@ -114,12 +128,10 @@ class ScheduleTab:
             self.previous_schedules = []
 
     def save_previous_schedules(self):
-        """Сохранение предыдущего расписания"""
         with open(self.previous_schedules_file, "w", encoding="utf-8") as f:
             json.dump(self.previous_schedules, f, ensure_ascii=False, indent=4)
 
     def parse_html_schedule(self, html_content: str) -> Dict:
-        """Парсим HTML-страницу с расписанием"""
         soup = BeautifulSoup(html_content, "html.parser")
         schedule_data = {"Month": []}
         current_month = {"Sched": []}
@@ -134,13 +146,12 @@ class ScheduleTab:
             print("Error: Table has no data rows")
             return {"error": "Таблица не содержит данных"}
 
-        for row in rows[1:]:  # Пропускаем заголовок
+        for row in rows[1:]:
             cols = row.find_all("td")
             if len(cols) < 5:
                 print(f"Warning: Row has insufficient columns: {len(cols)}")
                 continue
 
-            # Безопасное извлечение данных
             date_pair = cols[0].text.strip() if len(cols) > 0 else ""
             day_week = cols[1].text.strip() if len(cols) > 1 else ""
             time_text = cols[2].text.strip() if len(cols) > 2 else ""
@@ -151,7 +162,6 @@ class ScheduleTab:
             room = cols[5].text.strip() if len(cols) > 5 else ""
             teacher = cols[6].text.strip() if len(cols) > 6 else ""
 
-            # Пропускаем пустые строки
             if not (date_pair and discipline and time_start):
                 print(f"Warning: Skipping row with missing critical data: {date_pair}, {discipline}, {time_start}")
                 continue
@@ -178,7 +188,6 @@ class ScheduleTab:
         return schedule_data
 
     def validate_schedule(self, schedule: Dict) -> bool:
-        """Проверка структуры расписания"""
         if "error" in schedule:
             print(f"Validation failed: {schedule['error']}")
             return False
@@ -199,30 +208,45 @@ class ScheduleTab:
                         return False
         return True
 
+    async def check_schedule_on_open(self):
+        """Проверка расписания при открытии приложения"""
+        logging.info("Checking schedule on open")
+        if not self.group_id:
+            logging.warning("No group_id set, skipping schedule check")
+            return
+
+        now = datetime.datetime.now(pytz.timezone("Asia/Yekaterinburg"))
+        # Если расписание отсутствует или устарело (старше 24 часов), обновляем
+        if not self.schedules or not self.last_schedule_update or (
+                now - self.last_schedule_update).total_seconds() > 24 * 3600:
+            logging.info("Schedule missing or outdated, refreshing")
+            await self.refresh_schedules()
+        else:
+            logging.info("Schedule is up-to-date")
+            await self.display_schedules()
+
     async def load_schedule_for_group(self, group_id: str):
         """Загружаем расписание для выбранной группы"""
-        import logging
-        import requests
-        import json
         logging.basicConfig(level=logging.INFO, filename="app.log", encoding="utf-8",
                             format="%(asctime)s - %(levelname)s - %(message)s")
 
         self.group_id = group_id
         self.schedules = self.load_local_schedules()
+        logging.info(f"Loaded schedules: {json.dumps(self.schedules, ensure_ascii=False, indent=2)[:2000]}")
         if self.schedules and any(self.validate_schedule(sched) for sched in self.schedules):
-            logging.info("Loaded schedules from local file")
-            logging.info(f"Schedules content: {json.dumps(self.schedules, ensure_ascii=False, indent=2)[:2000]}")
-            self.page.run_task(self.schedule_daily_check)
+            logging.info("Loaded valid schedules from local file")
+            # Проверяем, нужно ли обновить расписание
+            await self.check_schedule_on_open()
             disciplines = self.get_unique_disciplines()
             logging.info(f"Disciplines after local load: {disciplines}")
+            self.page.run_task(self.schedule_daily_check)
             return
 
         self.schedules = []
         try:
             url = f"https://api.ursei.su/public/schedule/rest/GetGsSched?grpid={group_id}"
             response = requests.get(url, timeout=5)
-            logging.info(
-                f"API response for group {group_id}: status={response.status_code}, content={response.text[:2000]}")
+            logging.info(f"API response for group {group_id}: status={response.status_code}, content={response.text[:2000]}")
             if response.status_code == 200 and response.text.strip():
                 try:
                     schedule = response.json()
@@ -231,16 +255,14 @@ class ScheduleTab:
                         self.schedules.append(schedule)
                         logging.info("Schedule validated and added")
                     else:
-                        logging.warning(
-                            f"Invalid schedule structure for group {group_id}: {json.dumps(schedule, ensure_ascii=False)[:1000]}")
+                        logging.warning(f"Invalid schedule structure for group {group_id}")
                         self.schedules.append({"error": f"Некорректная структура расписания для группы {group_id}"})
                 except ValueError as e:
                     logging.error(f"Failed to parse JSON for group {group_id}: {e}")
                     self.schedules.append({"error": f"Ошибка парсинга JSON: {e}"})
             else:
                 logging.warning(f"Invalid response for group {group_id}: status={response.status_code}")
-                self.schedules.append(
-                    {"error": f"Не удалось загрузить расписание для группы {group_id} (HTTP {response.status_code})"})
+                self.schedules.append({"error": f"Не удалось загрузить расписание для группы {group_id} (HTTP {response.status_code})"})
         except Exception as e:
             logging.error(f"Error fetching schedule for group {group_id}: {e}")
             self.schedules.append({"error": f"Ошибка загрузки расписания: {e}"})
@@ -255,11 +277,13 @@ class ScheduleTab:
             self.page.update()
         disciplines = self.get_unique_disciplines()
         logging.info(f"Disciplines after API load: {disciplines}")
+        await self.display_schedules()
         self.page.run_task(self.schedule_daily_check)
 
     async def refresh_schedules(self):
         """Обновление расписания"""
         if not self.group_id:
+            logging.warning("No group_id set, skipping refresh")
             return
 
         self.previous_schedules = self.schedules.copy()
@@ -269,7 +293,7 @@ class ScheduleTab:
         try:
             url = f"https://ursei.su/asu/ssched.php?group={self.group_id}"
             response = requests.get(url, timeout=5)
-            print(f"API response for group {self.group_id}: {response.status_code} - {response.text[:200]}")
+            logging.info(f"API response for group {self.group_id}: {response.status_code} - {response.text[:200]}")
             if response.status_code == 200 and response.text.strip():
                 try:
                     schedule = response.json()
@@ -277,23 +301,45 @@ class ScheduleTab:
                     schedule = self.parse_html_schedule(response.text)
                 if self.validate_schedule(schedule):
                     self.schedules.append(schedule)
+                    self.last_schedule_update = datetime.datetime.now(pytz.timezone("Asia/Yekaterinburg"))
+                    logging.info("Schedule refreshed successfully")
                 else:
-                    print(f"Invalid schedule structure for group {self.group_id}")
+                    logging.warning(f"Invalid schedule structure for group {self.group_id}")
                     self.schedules.append({"error": f"Некорректная структура расписания для группы {self.group_id}"})
             else:
-                print(f"Invalid response for group {self.group_id}: {response.status_code}")
+                logging.warning(f"Invalid response for group {self.group_id}: status={response.status_code}")
                 self.schedules.append({"error": f"Не удалось загрузить расписание для группы {self.group_id}"})
         except Exception as e:
-            print(f"Error fetching schedule for group {self.group_id}: {e}")
+            logging.error(f"Error fetching schedule for group {self.group_id}: {e}")
             self.schedules.append({"error": f"Ошибка загрузки расписания: {e}"})
 
         self.save_schedules()
         await self.check_schedule_changes()
         await self.display_schedules()
 
+    # Остальные методы (notify, check_schedule_changes, schedule_daily_check, get_next_lesson_date, get_date_color,
+    # create_lessons, create_day_card, display_schedules, build, update_period) остаются без изменений
+
+    async def schedule_daily_check(self):
+        """Планировщик проверки расписания в 5 утра по челябинскому времени"""
+        chelyabinsk_tz = pytz.timezone("Asia/Yekaterinburg")
+        while True:
+            now = datetime.datetime.now(chelyabinsk_tz)
+            target_time = now.replace(hour=5, minute=0, second=0, microsecond=0)
+            if now > target_time:
+                target_time += datetime.timedelta(days=1)
+
+            seconds_until_check = (target_time - now).total_seconds()
+            logging.info(f"Next schedule check in {seconds_until_check} seconds")
+            await asyncio.sleep(seconds_until_check)
+
+            logging.info("Checking for schedule changes...")
+            await self.refresh_schedules()
+
     def notify(self, title: str, message: str):
-        """Отправка push-уведомления"""
         try:
+            from plyer import storage
+            storage.request_permissions(["android.permission.POST_NOTIFICATIONS"])
             notification.notify(
                 title=title,
                 message=message,
@@ -310,7 +356,6 @@ class ScheduleTab:
             self.page.update()
 
     async def check_schedule_changes(self):
-        """Проверка изменений в расписании"""
         if not self.app.settings.get("schedule_notifications", True):
             print("Schedule change notifications are disabled")
             return
@@ -360,24 +405,7 @@ class ScheduleTab:
         if changes:
             self.notify("Изменения в расписании", "; ".join(changes))
 
-    async def schedule_daily_check(self):
-        """Планировщик проверки расписания в 5 утра по челябинскому времени"""
-        chelyabinsk_tz = pytz.timezone("Asia/Yekaterinburg")
-        while True:
-            now = datetime.datetime.now(chelyabinsk_tz)
-            target_time = now.replace(hour=5, minute=0, second=0, microsecond=0)
-            if now > target_time:
-                target_time += datetime.timedelta(days=1)
-
-            seconds_until_check = (target_time - now).total_seconds()
-            print(f"Next schedule check in {seconds_until_check} seconds")
-            await asyncio.sleep(seconds_until_check)
-
-            print("Checking for schedule changes...")
-            await self.refresh_schedules()
-
     def get_next_lesson_date(self, discipline: str, mode: str) -> datetime.date:
-        """Определение даты следующего занятия по дисциплине"""
         current_date = datetime.date.today()
         next_lesson_date = None
         for schedule in self.schedules:
@@ -405,11 +433,9 @@ class ScheduleTab:
         return next_lesson_date if next_lesson_date else (current_date + datetime.timedelta(days=7))
 
     def get_date_color(self, day_date: datetime.date, current_date: datetime.date, tomorrow_date: datetime.date) -> str:
-        """Определяем цвет даты"""
         return "blue" if day_date == tomorrow_date else "red" if day_date == current_date else "black"
 
     def create_lessons(self, main_schedule: List[Dict], day_date: datetime.date, highlight_current_pair: bool = False):
-        """Создаём список уроков для дня"""
         lessons = ft.Column()
         current_time = datetime.datetime.now().time()
 
@@ -470,7 +496,6 @@ class ScheduleTab:
 
     def create_day_card(self, day: Dict, current_date: datetime.date, tomorrow_date: datetime.date,
                         highlight_current_pair: bool = False, force_blue: bool = False):
-        """Создаём карточку дня"""
         try:
             date_str = day.get("datePair", "")
             if not date_str:
@@ -516,8 +541,7 @@ class ScheduleTab:
         start_of_week = today_date - datetime.timedelta(days=today_date.weekday())
         end_of_week = start_of_week + datetime.timedelta(days=6)
         start_of_month = today_date.replace(day=1)
-        end_of_month = (today_date.replace(day=1) + datetime.timedelta(days=32)).replace(day=1) - datetime.timedelta(
-            days=1)
+        end_of_month = (today_date.replace(day=1) + datetime.timedelta(days=32)).replace(day=1) - datetime.timedelta(days=1)
 
         cards = []
         for schedule in self.schedules:
@@ -651,8 +675,6 @@ class ScheduleTab:
         self.page.update()
         logging.info(f"Schedule output controls after update: {len(self.schedule_output.controls)}")
 
-        # Временно отключаем прокрутку для проверки отображения
-        self.page.update()
         if cards:
             target_key = None
             if self.selected_period == "Сегодня":
@@ -731,7 +753,6 @@ class ScheduleTab:
         return layout
 
     async def update_period(self, period: str):
-        """Обновляем период отображения"""
         print(f"Updating period to: {period}")
         self.selected_period = period
         await self.display_schedules()
