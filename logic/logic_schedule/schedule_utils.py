@@ -68,7 +68,7 @@ class ScheduleUtils:
                                         next_lesson_date = day_date
                     except ValueError:
                         continue
- next_lesson_date if next_lesson_date else (current_date + datetime.timedelta(days=7))
+                        next_lesson_date if next_lesson_date else (current_date + datetime.timedelta(days=7))
 
     def get_date_color(self, day_date: datetime.date, current_date: datetime.date, tomorrow_date: datetime.date) -> str:
         return "blue" if day_date == tomorrow_date else "red" if day_date == current_date else "black"
