@@ -3,7 +3,11 @@ name = "student_app"
 version = "0.49"
 description = "Студенческое приложение"
 authors = [{ name = "Levi" }]
-dependencies = ["flet"]
+dependencies = ["beautifulsoup4==4.12.3",
+    "flet==0.27.6",
+    "plyer==2.1.0",
+    "pytz==2025.2",
+    "requests==2.32.3"]
 
 [tool.flet]
 app-entrypoint = "main.py"
