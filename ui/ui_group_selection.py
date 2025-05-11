@@ -29,7 +29,14 @@ class GroupSelectionUI:
 
     def update_groups(self, e):
         """Обновляем выпадающий список групп на основе выбранного курса"""
-        selected_course = self.course_dropdown.value or self.manager.data.get_courses()[0]
+        courses = self.manager.data.get_courses()
+        if not courses:
+            logging.warning("No courses available")
+            self.group_dropdown.options = []
+            self.group_dropdown.value = None
+            self.page.update()
+            return
+        selected_course = self.course_dropdown.value or courses[0]
         groups = self.manager.data.get_groups_for_course(selected_course)
         self.group_dropdown.options = [ft.dropdown.Option(group["name"]) for group in groups]
         self.group_dropdown.value = groups[0]["name"] if groups else None
@@ -43,6 +50,7 @@ class GroupSelectionUI:
             self.page.snack_bar.open = True
             self.page.update()
 
+        logging.info(f"Selecting group: course={self.course_dropdown.value}, group_name={self.group_dropdown.value}")
         await self.manager.select_group(
             course=self.course_dropdown.value,
             group_name=self.group_dropdown.value,

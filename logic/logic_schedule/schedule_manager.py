@@ -2,7 +2,6 @@ import logging
 import json
 import asyncio
 import datetime
-import pytz
 import requests
 from typing import List, Dict
 from .schedule_data import ScheduleData
@@ -26,7 +25,6 @@ class ScheduleManager:
             logging.info("No previous schedule update, fetching new schedule")
             await self.fetch_and_update_schedule(display_callback)
         else:
-            # Приводим last_schedule_update к offset-naive
             last_update_naive = self.data.last_schedule_update.replace(tzinfo=None)
             logging.info(f"Comparing now: {now}, last_update_naive: {last_update_naive}")
             if (now - last_update_naive).total_seconds() > 24 * 3600:
@@ -34,13 +32,11 @@ class ScheduleManager:
                 await self.fetch_and_update_schedule(display_callback)
             else:
                 logging.info("Schedule is up-to-date, using cached data")
-                await display_callback(self.data.schedules)
+                await display_callback()  # Убрали self.data.schedules
 
     async def load_schedule_for_group(self, group_id: str, display_callback, notify_callback):
-        logging.basicConfig(level=logging.INFO, filename="app.log", encoding="utf-8",
-                            format="%(asctime)s - %(levelname)s - %(message)s")
         self.group_id = group_id
-        self.data.schedules = self.data.load_local_schedules()
+        self.data.load_schedules()  # Загружаем локальные данные
         logging.info(f"Loaded schedules: {json.dumps(self.data.schedules, ensure_ascii=False, indent=2)[:2000]}")
         if self.data.schedules and any(self.validation.validate_schedule(sched) for sched in self.data.schedules):
             logging.info("Loaded valid schedules from local file")
@@ -74,12 +70,12 @@ class ScheduleManager:
             logging.error(f"Error fetching schedule for group {group_id}: {e}")
             self.data.schedules.append({"error": f"Ошибка загрузки расписания: {e}"})
 
-        self.data.save_schedules(self.data.schedules)
+        self.data.save_schedules()
         if all("error" in sched for sched in self.data.schedules):
             notify_callback("Не удалось загрузить расписание. Проверьте подключение или выберите другую группу.")
         disciplines = self.utils.get_unique_disciplines(self.data.schedules)
         logging.info(f"Disciplines after API load: {disciplines}")
-        await display_callback()
+        await display_callback()  # Убрали self.data.schedules
 
     async def refresh_schedules(self, display_callback):
         if not self.group_id:
@@ -101,7 +97,7 @@ class ScheduleManager:
                     schedule = self.data.parse_html_schedule(response.text)
                 if self.validation.validate_schedule(schedule):
                     self.data.schedules.append(schedule)
-                    self.data.last_schedule_update = datetime.datetime.now(pytz.timezone("Asia/Yekaterinburg"))
+                    self.data.last_schedule_update = datetime.datetime.now()  # Без временной зоны
                     logging.info("Schedule refreshed successfully")
                 else:
                     logging.warning(f"Invalid schedule structure for group {self.group_id}")
@@ -113,14 +109,13 @@ class ScheduleManager:
             logging.error(f"Error fetching schedule for group {self.group_id}: {e}")
             self.data.schedules.append({"error": f"Ошибка загрузки расписания: {e}"})
 
-        self.data.save_schedules(self.data.schedules)
+        self.data.save_schedules()
         await self.notifications.check_schedule_changes(self.data.previous_schedules, self.data.schedules, lambda msg: None)
-        await display_callback()
+        await display_callback()  # Убрали self.data.schedules для согласованности
 
     async def schedule_daily_check(self, display_callback):
-        chelyabinsk_tz = pytz.timezone("Asia/Yekaterinburg")
         while True:
-            now = datetime.datetime.now(chelyabinsk_tz)
+            now = datetime.datetime.now()
             target_time = now.replace(hour=5, minute=0, second=0, microsecond=0)
             if now > target_time:
                 target_time += datetime.timedelta(days=1)
@@ -131,3 +126,7 @@ class ScheduleManager:
 
             logging.info("Checking for schedule changes...")
             await self.refresh_schedules(display_callback)
+
+    async def fetch_and_update_schedule(self, display_callback):
+        """Получает и обновляет расписание."""
+        await self.refresh_schedules(display_callback)

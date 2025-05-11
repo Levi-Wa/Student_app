@@ -25,17 +25,22 @@ class GroupSelectionManager:
             self.app.save_settings()
             logging.info(f"Saved group_id: {group_id}")
 
-            await self.schedule_manager.load_schedule_for_group(
-                group_id=group_id,
-                display_callback=display_callback,
-                notify_callback=notify_callback
-            )
+            try:
+                await self.schedule_manager.load_schedule_for_group(
+                    group_id=group_id,
+                    display_callback=display_callback,
+                    notify_callback=notify_callback
+                )
 
-            if all("error" in sched for sched in self.schedule_manager.data.schedules):
-                notify_callback("Ошибка загрузки расписания. Попробуйте другую группу или проверьте подключение.")
-                return
+                if all("error" in sched for sched in self.schedule_manager.data.schedules):
+                    notify_callback("Ошибка загрузки расписания. Попробуйте другую группу или проверьте подключение.")
+                    return
 
-            logging.info("Calling on_selection_complete")
-            await on_selection_complete()
+                logging.info("Calling on_selection_complete")
+                await on_selection_complete()
+            except Exception as e:
+                logging.error(f"Error loading schedule for group {group_id}: {e}")
+                notify_callback(f"Ошибка: {str(e)}")
         else:
             notify_callback("Не удалось найти ID группы")
+            logging.warning(f"Group ID not found for course {course}, group_name {group_name}")

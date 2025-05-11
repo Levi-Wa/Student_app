@@ -12,7 +12,6 @@ from ui.ui_notes import NotesUI
 from ui.ui_settings import SettingsUI
 from ui.ui_group_selection import GroupSelectionUI
 
-
 class App:
     """Класс приложения для управления настройками."""
 
@@ -45,7 +44,6 @@ class App:
         except Exception as e:
             logging.error(f"Error saving settings: {e}")
 
-
 def setup_logging():
     """Настраивает логирование с ротацией логов в папке data/log."""
     log_dir = Path(__file__).parent / "data" / "log"
@@ -60,7 +58,6 @@ def setup_logging():
     logging.getLogger().setLevel(logging.INFO)
     logging.getLogger().addHandler(handler)
     logging.info(f"Logging initialized, logs will be saved to {log_dir / 'app.log'}")
-
 
 def main(page: ft.Page):
     """Основная функция приложения."""
@@ -102,7 +99,11 @@ def main(page: ft.Page):
                 ]
             )
         )
-        await notes_ui.update_disciplines()  # Обновляем дисциплины после загрузки расписания
+        try:
+            await notes_ui.update_disciplines()
+            logging.info("Disciplines updated in NotesUI")
+        except Exception as e:
+            logging.error(f"Error updating disciplines: {e}")
         page.update()
         logging.info("Main view displayed after group selection")
 
@@ -112,16 +113,23 @@ def main(page: ft.Page):
     # Проверка, есть ли сохранённый group_id
     if app.settings.get("group_id"):
         async def load_schedule():
-            await schedule_manager.load_schedule_for_group(
-                group_id=app.settings["group_id"],
-                display_callback=schedule_ui.display_schedules,
-                notify_callback=lambda msg: (
-                    setattr(page, 'snack_bar', ft.SnackBar(ft.Text(msg), duration=5000)),
-                    setattr(page.snack_bar, 'open', True),
-                    page.update()
+            logging.info(f"Loading schedule for group_id: {app.settings['group_id']}")
+            try:
+                await schedule_manager.load_schedule_for_group(
+                    group_id=app.settings["group_id"],
+                    display_callback=schedule_ui.display_schedules,
+                    notify_callback=lambda msg: (
+                        setattr(page, 'snack_bar', ft.SnackBar(ft.Text(msg), duration=5000)),
+                        setattr(page.snack_bar, 'open', True),
+                        page.update()
+                    )
                 )
-            )
-            await on_selection_complete()
+                await on_selection_complete()
+            except Exception as e:
+                logging.error(f"Error loading schedule: {e}")
+                page.snack_bar = ft.SnackBar(ft.Text(f"Ошибка загрузки расписания: {str(e)}"), duration=5000)
+                page.snack_bar.open = True
+                page.update()
 
         page.run_task(load_schedule)
     else:
@@ -133,7 +141,6 @@ def main(page: ft.Page):
         )
         page.update()
         logging.info("Group selection view displayed")
-
 
 if __name__ == "__main__":
     ft.app(target=main)

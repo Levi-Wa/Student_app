@@ -11,12 +11,17 @@ class NotesUI:
         self.schedule_manager = schedule_manager
         self.ui_content = ft.Column(scroll=ft.ScrollMode.AUTO, expand=True)
         self.notes_list = ft.ListView(expand=True)
-        self.ui_content.controls = [self.build_note_form(), self.notes_list]
+        self.discipline_dropdown = None
+        self.mode_dropdown = None
+        self.note_text = None
+        self.add_button = None
+        self.build_note_form()
+        self.ui_content.controls = [self.build_note_form_container(), self.notes_list]
         self.update_notes_list()
         logging.info("NotesUI initialized")
 
     def build_note_form(self):
-        """Создаём форму для добавления заметки"""
+        """Создаёт форму для добавления заметки."""
         disciplines = self.schedule_manager.utils.get_unique_disciplines(self.schedule_manager.data.schedules)
         logging.info(f"Disciplines in build_note_form: {disciplines}")
         if not disciplines:
@@ -25,7 +30,7 @@ class NotesUI:
             discipline_value = "Нет дисциплин"
         else:
             discipline_options = [ft.dropdown.Option(d) for d in disciplines]
-            discipline_value = disciplines[0]
+            discipline_value = disciplines[0] if disciplines else None
 
         self.discipline_dropdown = ft.Dropdown(
             label="Дисциплина",
@@ -50,25 +55,29 @@ class NotesUI:
             multiline=True,
             width=300
         )
-        add_button = ft.ElevatedButton(
+        self.add_button = ft.ElevatedButton(
             text="Добавить",
             on_click=self.add_note
         )
 
+    def build_note_form_container(self):
+        """Возвращает контейнер с формой."""
         return ft.Container(
             padding=ft.padding.symmetric(horizontal=20, vertical=20),
             content=ft.Column([
                 self.discipline_dropdown,
                 self.mode_dropdown,
                 self.note_text,
-                add_button
+                self.add_button
             ], alignment=ft.MainAxisAlignment.CENTER)
         )
 
-    async def update_disciplines(self):
+    def update_disciplines(self):
         """Обновляет список дисциплин после загрузки расписания."""
         logging.info("Updating disciplines in NotesUI")
-        await self.build_note_form()
+        self.build_note_form()
+        self.ui_content.controls[0] = self.build_note_form_container()
+        self.page.update()
 
     def add_note(self, e):
         """Добавление новой заметки через UI"""

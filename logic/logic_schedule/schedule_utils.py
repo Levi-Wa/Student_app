@@ -60,7 +60,7 @@ class ScheduleUtils:
                             lesson_discipline = lesson.get("Dis", "") or lesson.get("SubjName", "")
                             if lesson_discipline == discipline:
                                 lesson_type = lesson.get("Type", "").lower() or lesson.get("LoadKindSN", "").lower()
-                                if mode == "До следующего занятия":
+                                if mode == "До следующей пары":
                                     if next_lesson_date is None or day_date < next_lesson_date:
                                         next_lesson_date = day_date
                                 elif mode == "До следующей практики" and "практика" in lesson_type:
@@ -68,7 +68,7 @@ class ScheduleUtils:
                                         next_lesson_date = day_date
                     except ValueError:
                         continue
-                        next_lesson_date if next_lesson_date else (current_date + datetime.timedelta(days=7))
+        return next_lesson_date if next_lesson_date else (current_date + datetime.timedelta(days=7))
 
     def get_date_color(self, day_date: datetime.date, current_date: datetime.date, tomorrow_date: datetime.date) -> str:
         return "blue" if day_date == tomorrow_date else "red" if day_date == current_date else "black"
