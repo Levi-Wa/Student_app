@@ -97,12 +97,41 @@ class SettingsUI:
         )
 
         return ft.Container(
-            padding=ft.padding.symmetric(horizontal=20),
+            padding=ft.padding.symmetric(horizontal=20, vertical=20),
             content=ft.Column([
-                schedule_notifications_switch,
-                expiry_days_dropdown,
-                change_group_button,
-                report_issue_button,
-                theme_switch
-            ], alignment=ft.MainAxisAlignment.CENTER)
+                # Группа: Уведомления
+                ft.Card(
+                    content=ft.Container(
+                        content=ft.Column([
+                            ft.Text("Уведомления", weight="bold", size=16),
+                            schedule_notifications_switch,
+                            expiry_days_dropdown
+                        ], spacing=10),
+                        padding=10
+                    )
+                ),
+                ft.Divider(),
+                # Группа: Тема
+                ft.Card(
+                    content=ft.Container(
+                        content=ft.Column([
+                            ft.Text("Тема", weight="bold", size=16),
+                            theme_switch
+                        ], spacing=10),
+                        padding=10
+                    )
+                ),
+                ft.Divider(),
+                # Группа: Действия
+                ft.Card(
+                    content=ft.Container(
+                        content=ft.Column([
+                            ft.Text("Действия", weight="bold", size=16),
+                            change_group_button,
+                            report_issue_button
+                        ], spacing=10),
+                        padding=10
+                    )
+                )
+            ], spacing=15, alignment=ft.MainAxisAlignment.CENTER)
         )

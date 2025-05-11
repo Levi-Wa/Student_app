@@ -7,13 +7,11 @@ from logic.logic_schedule.schedule_utils import BELL_SCHEDULE
 class ScheduleUI:
     def __init__(self, page: ft.Page, manager):
         self.page = page
-        self.manager = manager  # Теперь используем ScheduleManager вместо ScheduleLogic
+        self.manager = manager
         self.selected_period = "Сегодня"
-        self.schedule_output = ft.ListView(
-            expand=True,
+        self.schedule_output = ft.Column(
             spacing=10,
-            padding=10,
-            auto_scroll=False,
+            scroll=ft.ScrollMode.AUTO,  # Используем Column с прокруткой
             on_scroll=self.on_scroll
         )
 
@@ -327,9 +325,7 @@ class ScheduleUI:
                     padding=ft.padding.only(top=40, bottom=10)
                 ),
                 self.schedule_output
-            ],
-            scroll=ft.ScrollMode.AUTO,
-            expand=True
+            ]
         )
 
         return layout

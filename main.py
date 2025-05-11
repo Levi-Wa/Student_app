@@ -100,7 +100,7 @@ def main(page: ft.Page):
             )
         )
         try:
-            await notes_ui.update_disciplines()
+            notes_ui.update_disciplines()  # Убрали await
             logging.info("Disciplines updated in NotesUI")
         except Exception as e:
             logging.error(f"Error updating disciplines: {e}")
