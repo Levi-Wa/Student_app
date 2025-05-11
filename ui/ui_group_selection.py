@@ -1,5 +1,6 @@
 import flet as ft
 import logging
+from logic.logic_selector_group.group_selection_manager import GroupSelectionManager
 
 class GroupSelectionUI:
     def __init__(self, page: ft.Page, manager, schedule_ui, on_selection_complete):

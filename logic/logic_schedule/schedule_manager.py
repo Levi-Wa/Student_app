@@ -1,7 +1,8 @@
+import logging
+import json
 import asyncio
 import datetime
 import pytz
-import logging
 import requests
 from typing import List, Dict
 from .schedule_data import ScheduleData
@@ -18,19 +19,22 @@ class ScheduleManager:
         self.group_id = None
 
     async def check_schedule_on_open(self, display_callback):
+        """Проверяет, нужно ли обновить расписание при открытии приложения."""
         logging.info("Checking schedule on open")
-        if not self.group_id:
-            logging.warning("No group_id set, skipping schedule check")
-            return
-
-        now = datetime.datetime.now(pytz.timezone("Asia/Yekaterinburg"))
-        if not self.data.schedules or not self.data.last_schedule_update or (
-                now - self.data.last_schedule_update).total_seconds() > 24 * 3600:
-            logging.info("Schedule missing or outdated, refreshing")
-            await self.refresh_schedules(display_callback)
+        now = datetime.datetime.now()
+        if self.data.last_schedule_update is None:
+            logging.info("No previous schedule update, fetching new schedule")
+            await self.fetch_and_update_schedule(display_callback)
         else:
-            logging.info("Schedule is up-to-date")
-            await display_callback()
+            # Приводим last_schedule_update к offset-naive
+            last_update_naive = self.data.last_schedule_update.replace(tzinfo=None)
+            logging.info(f"Comparing now: {now}, last_update_naive: {last_update_naive}")
+            if (now - last_update_naive).total_seconds() > 24 * 3600:
+                logging.info("Schedule is outdated, fetching new schedule")
+                await self.fetch_and_update_schedule(display_callback)
+            else:
+                logging.info("Schedule is up-to-date, using cached data")
+                await display_callback(self.data.schedules)
 
     async def load_schedule_for_group(self, group_id: str, display_callback, notify_callback):
         logging.basicConfig(level=logging.INFO, filename="app.log", encoding="utf-8",

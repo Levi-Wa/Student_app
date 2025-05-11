@@ -1,6 +1,7 @@
 import flet as ft
 import datetime
 import logging
+from logic.logic_notes.notes_manager import NotesManager
 from typing import List, Dict
 
 class NotesUI:
@@ -63,6 +64,11 @@ class NotesUI:
                 add_button
             ], alignment=ft.MainAxisAlignment.CENTER)
         )
+
+    async def update_disciplines(self):
+        """Обновляет список дисциплин после загрузки расписания."""
+        logging.info("Updating disciplines in NotesUI")
+        await self.build_note_form()
 
     def add_note(self, e):
         """Добавление новой заметки через UI"""

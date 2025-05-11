@@ -1,5 +1,6 @@
 import flet as ft
 import logging
+from logic.logic_settings.settings_manager import SettingsManager
 
 class SettingsUI:
     def __init__(self, page: ft.Page, manager):

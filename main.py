@@ -2,6 +2,7 @@ import flet as ft
 import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
+import json
 from logic.logic_schedule.schedule_manager import ScheduleManager
 from logic.logic_notes.notes_manager import NotesManager
 from logic.logic_settings.settings_manager import SettingsManager
@@ -17,7 +18,7 @@ class App:
 
     def __init__(self):
         self.settings = {}
-        self.settings_file = Path.home() / "settings.json"
+        self.settings_file = Path(__file__).parent / "data" / "settings.json"
         self.load_settings()
 
     def load_settings(self):
@@ -46,11 +47,19 @@ class App:
 
 
 def setup_logging():
-    """Настраивает логирование с ротацией логов."""
-    handler = RotatingFileHandler("app.log", maxBytes=10 * 1024 * 1024, backupCount=5)
+    """Настраивает логирование с ротацией логов в папке data/log."""
+    log_dir = Path(__file__).parent / "data" / "log"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    handler = RotatingFileHandler(
+        log_dir / "app.log",
+        maxBytes=10 * 1024 * 1024,
+        backupCount=5,
+        encoding="utf-8"
+    )
     handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
     logging.getLogger().setLevel(logging.INFO)
     logging.getLogger().addHandler(handler)
+    logging.info(f"Logging initialized, logs will be saved to {log_dir / 'app.log'}")
 
 
 def main(page: ft.Page):
@@ -74,8 +83,8 @@ def main(page: ft.Page):
     schedule_ui = ScheduleUI(page, schedule_manager)
     notes_ui = NotesUI(page, notes_manager, schedule_manager)
     settings_ui = SettingsUI(page, settings_manager)
-    group_selection_ui = GroupSelectionUI(page, group_selection_manager, schedule_ui, on_selection_complete)
 
+    # Определение функции on_selection_complete перед использованием
     async def on_selection_complete():
         """Переход к основному интерфейсу после выбора группы."""
         page.views.clear()
@@ -93,8 +102,12 @@ def main(page: ft.Page):
                 ]
             )
         )
+        await notes_ui.update_disciplines()  # Обновляем дисциплины после загрузки расписания
         page.update()
         logging.info("Main view displayed after group selection")
+
+    # Инициализация GroupSelectionUI после определения on_selection_complete
+    group_selection_ui = GroupSelectionUI(page, group_selection_manager, schedule_ui, on_selection_complete)
 
     # Проверка, есть ли сохранённый group_id
     if app.settings.get("group_id"):

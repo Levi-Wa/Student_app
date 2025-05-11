@@ -2,6 +2,7 @@ import flet as ft
 import datetime
 import logging
 from typing import List, Dict
+from logic.logic_schedule.schedule_utils import BELL_SCHEDULE
 
 class ScheduleUI:
     def __init__(self, page: ft.Page, manager):
