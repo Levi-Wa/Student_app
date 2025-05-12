@@ -6,6 +6,7 @@ import logging
 class ScheduleData:
     def __init__(self):
         self.schedules_file = Path(__file__).parent.parent.parent / "data" / "schedules.json"
+        self.previous_schedules_file = self.schedules_file.parent / "previous_schedules.json"
         self.schedules = []
         self.group_id = None
         self.last_schedule_update = None
@@ -46,3 +47,21 @@ class ScheduleData:
             logging.info("Schedules saved successfully")
         except Exception as e:
             logging.error(f"Error saving schedules: {e}")
+
+    def save_previous_schedules(self):
+        """Сохраняет текущие расписания в отдельный файл перед обновлением."""
+        if not self.schedules:
+            logging.info("No schedules to save as previous")
+            return
+        try:
+            data = {
+                "schedules": self.schedules,
+                "group_id": self.group_id,
+                "last_fetched": self.last_schedule_update.isoformat() if self.last_schedule_update else None
+            }
+            self.previous_schedules_file.parent.mkdir(parents=True, exist_ok=True)
+            with open(self.previous_schedules_file, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=4)
+            logging.info(f"Previous schedules saved to {self.previous_schedules_file}")
+        except Exception as e:
+            logging.error(f"Error saving previous schedules: {e}")

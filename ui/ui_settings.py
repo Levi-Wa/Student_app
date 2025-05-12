@@ -98,6 +98,7 @@ class SettingsUI:
 
         return ft.Container(
             padding=ft.padding.symmetric(horizontal=20, vertical=20),
+            alignment=ft.alignment.center,  # Центрируем содержимое
             content=ft.Column([
                 # Группа: Уведомления
                 ft.Card(
@@ -133,5 +134,5 @@ class SettingsUI:
                         padding=10
                     )
                 )
-            ], spacing=15, alignment=ft.MainAxisAlignment.CENTER)
+            ], spacing=15, alignment=ft.MainAxisAlignment.CENTER, expand=True)  # Растягиваем Column
         )

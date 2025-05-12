@@ -1,3 +1,4 @@
+import flet as ft
 import logging
 from .settings_data import SettingsData
 from .settings_utils import SettingsUtils
@@ -45,10 +46,17 @@ class SettingsManager:
             notify_callback("Ошибка при отправке отчета")
 
     def toggle_theme(self, page):
-        """Переключение темы"""
-        self.app.settings["theme"] = "dark" if self.app.settings["theme"] == "light" else "light"
-        page.theme_mode = ft.ThemeMode.DARK if self.app.settings["theme"] == "dark" else ft.ThemeMode.LIGHT
-        self.data.save_settings(self.app)
+        """Переключает тему приложения между светлой и тёмной."""
+        try:
+            current_theme = self.app.settings.get("theme", "light")
+            new_theme = "dark" if current_theme == "light" else "light"
+            self.app.settings["theme"] = new_theme
+            page.theme_mode = ft.ThemeMode.DARK if new_theme == "dark" else ft.ThemeMode.LIGHT
+            self.data.save_settings(self.app)
+            page.update()
+            logging.info(f"Theme switched to {new_theme}")
+        except Exception as e:
+            logging.error(f"Error toggling theme: {e}")
 
     def update_expiry_days(self, days: str, notify_callback):
         """Обновление количества дней для уведомления"""

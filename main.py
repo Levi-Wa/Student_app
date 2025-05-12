@@ -94,7 +94,8 @@ def main(page: ft.Page):
                             ft.Tab(text="Расписание", content=schedule_ui.build()),
                             ft.Tab(text="Заметки", content=notes_ui.ui_content),
                             ft.Tab(text="Настройки", content=settings_ui.build())
-                        ]
+                        ],
+                        expand=True  # Убедитесь, что это присутствует
                     )
                 ]
             )

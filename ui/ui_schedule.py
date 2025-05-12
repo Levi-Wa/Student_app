@@ -324,7 +324,11 @@ class ScheduleUI:
                     content=ft.Row([period_dropdown], alignment=ft.MainAxisAlignment.CENTER),
                     padding=ft.padding.only(top=40, bottom=10)
                 ),
-                self.schedule_output
+                ft.Container(
+                    content=self.schedule_output,
+                    height=800,  # Фиксированная высота
+                    expand=True
+                )
             ]
         )
 
