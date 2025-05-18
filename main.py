@@ -68,11 +68,38 @@ def setup_logging():
     logging.getLogger().addHandler(handler)
     logging.info(f"Logging initialized, logs will be saved to {log_dir / 'app.log'}")
 
-# Остальной код main.py остаётся без изменений, кроме функции main
 def main(page: ft.Page):
     """Основная функция приложения."""
-    setup_logging()
-    logging.info("Starting Student App")
+    # Оптимизация для Android
+    page.window_width = 400
+    page.window_height = 800
+    page.window_resizable = False
+    page.padding = 0
+    page.theme = ft.Theme(
+        color_scheme_seed=ft.colors.BLUE,
+        use_material3=True,
+        color_scheme=ft.ColorScheme(
+            primary=ft.colors.BLUE,
+            on_primary=ft.colors.WHITE,
+            primary_container=ft.colors.BLUE_100,
+            on_primary_container=ft.colors.BLUE_900,
+            secondary=ft.colors.BLUE_GREY,
+            on_secondary=ft.colors.WHITE,
+            secondary_container=ft.colors.BLUE_GREY_100,
+            on_secondary_container=ft.colors.BLUE_GREY_900,
+            surface=ft.colors.SURFACE,
+            on_surface=ft.colors.ON_SURFACE,
+            surface_variant=ft.colors.SURFACE_VARIANT,
+            on_surface_variant=ft.colors.ON_SURFACE_VARIANT,
+            background=ft.colors.BACKGROUND,
+            on_background=ft.colors.ON_BACKGROUND,
+        )
+    )
+    
+    # Асинхронная инициализация логирования
+    async def async_setup():
+        setup_logging()
+        logging.info("Starting Student App")
 
     # Инициализация приложения
     app = App()
@@ -86,48 +113,10 @@ def main(page: ft.Page):
     notes_manager = NotesManager(schedule_manager, app)
     settings_manager = SettingsManager(app, schedule_manager, group_selection_manager, notes_manager)
 
-    # Инициализация UI
+    # Инициализация UI компонентов
     schedule_ui = ScheduleUI(page, schedule_manager)
     notes_ui = NotesUI(page, notes_manager, schedule_manager)
     settings_ui = SettingsUI(page, settings_manager)
-
-    # Контейнер для содержимого
-    content_container = ft.Container(expand=True)
-
-    # Функция для переключения содержимого
-    def switch_content(e):
-        selected_index = e.control.selected_index
-        if selected_index == 0:
-            content_container.content = schedule_ui.build()
-        elif selected_index == 1:
-            content_container.content = notes_ui.ui_content
-        elif selected_index == 2:
-            content_container.content = settings_ui.build()
-        page.update()
-        logging.info(f"Switched to tab index: {selected_index}")
-
-    # Навигационный бар
-    nav_bar = ft.NavigationBar(
-        destinations=[
-            ft.NavigationBarDestination(
-                icon=ft.Icons.CALENDAR_TODAY,
-                label="Расписание"
-            ),
-            ft.NavigationBarDestination(
-                icon=ft.Icons.NOTE,
-                label="Заметки"
-            ),
-            ft.NavigationBarDestination(
-                icon=ft.Icons.SETTINGS,
-                label="Настройки"
-            ),
-        ],
-        selected_index=0,
-        on_change=switch_content
-    )
-
-    # Инициализация содержимого на первом экране
-    content_container.content = schedule_ui.build()
 
     # Определение функции on_selection_complete
     async def on_selection_complete():
@@ -140,7 +129,8 @@ def main(page: ft.Page):
                     content_container,
                     nav_bar
                 ],
-                vertical_alignment=ft.MainAxisAlignment.SPACE_BETWEEN
+                vertical_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                padding=0
             )
         )
         try:
@@ -153,38 +143,85 @@ def main(page: ft.Page):
 
     # Инициализация GroupSelectionUI
     group_selection_ui = GroupSelectionUI(page, group_selection_manager, schedule_ui, on_selection_complete)
+    group_selection_manager.ui = group_selection_ui  # Сохраняем ссылку на UI
 
-    # Проверка, есть ли сохранённый group_id
-    if app.settings.get("group_id"):
-        async def load_schedule():
-            logging.info(f"Loading schedule for group_id: {app.settings['group_id']}")
-            try:
-                await schedule_manager.load_schedule_for_group(
-                    group_id=app.settings["group_id"],
-                    display_callback=schedule_ui.display_schedules,
-                    notify_callback=lambda msg: (
-                        setattr(page, 'snack_bar', ft.SnackBar(ft.Text(msg), duration=5000)),
-                        setattr(page.snack_bar, 'open', True),
-                        page.update()
-                    )
+    # Создание контейнера для основного контента
+    content_container = ft.Container(
+        content=schedule_ui.build(),
+        expand=True
+    )
+
+    # Создание нижней навигационной панели
+    nav_bar = ft.NavigationBar(
+        destinations=[
+            ft.NavigationBarDestination(
+                icon=ft.icons.NOTE_ALT_OUTLINED,
+                selected_icon=ft.icons.NOTE_ALT,
+                label="Заметки",
+            ),
+            ft.NavigationBarDestination(
+                icon=ft.icons.CALENDAR_TODAY_OUTLINED,
+                selected_icon=ft.icons.CALENDAR_TODAY,
+                label="Расписание",
+            ),
+            ft.NavigationBarDestination(
+                icon=ft.icons.SETTINGS_OUTLINED,
+                selected_icon=ft.icons.SETTINGS,
+                label="Настройки",
+            ),
+        ],
+        on_change=lambda e: handle_navigation_change(e.control.selected_index),
+    )
+
+    def handle_navigation_change(index):
+        """Обработчик изменения вкладки в навигационной панели"""
+        if index == 0:  # Заметки
+            content_container.content = notes_ui.build()
+        elif index == 1:  # Расписание
+            content_container.content = schedule_ui.build()
+        else:  # Настройки
+            content_container.content = settings_ui.build()
+        page.update()
+
+    # Проверяем сохраненный group_id
+    saved_group_id = app.settings.get("group_id")
+    if saved_group_id:
+        schedule_manager.group_id = saved_group_id
+        schedule_manager.data.group_id = saved_group_id
+        schedule_manager.data.load_schedules()
+        
+        # Если есть валидные данные расписания, показываем главный интерфейс
+        if schedule_manager.data.schedules and any(not "error" in sched for sched in schedule_manager.data.schedules):
+            page.views.append(
+                ft.View(
+                    "/main",
+                    [content_container, nav_bar],
+                    vertical_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    padding=0
                 )
-                await on_selection_complete()
-            except Exception as e:
-                logging.error(f"Error loading schedule: {e}")
-                page.snack_bar = ft.SnackBar(ft.Text(f"Ошибка загрузки расписания: {str(e)}"), duration=5000)
-                page.snack_bar.open = True
-                page.update()
-
-        page.run_task(load_schedule)
+            )
+        else:
+            # Если данные невалидны, показываем выбор группы
+            page.views.append(
+                ft.View(
+                    "/group_selection",
+                    [group_selection_ui.build()],
+                    padding=10
+                )
+            )
     else:
+        # Если group_id не сохранен, показываем выбор группы
         page.views.append(
             ft.View(
                 "/group_selection",
-                [group_selection_ui.build()]
+                [group_selection_ui.build()],
+                padding=10
             )
         )
-        page.update()
-        logging.info("Group selection view displayed")
+    
+    # Запускаем асинхронную инициализацию
+    page.run_task(async_setup)
+    page.update()
 
 if __name__ == "__main__":
     ft.app(target=main)

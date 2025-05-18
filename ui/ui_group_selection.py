@@ -12,43 +12,51 @@ class GroupSelectionUI:
             label="Курс",
             options=[ft.dropdown.Option(course) for course in self.manager.data.get_courses()],
             on_change=self.update_groups,
-            width=300
+            width=None,  # Адаптивная ширина
+            expand=True,  # Растягиваем на всю ширину
+            value=None,
+            text_size=16
         )
         self.group_dropdown = ft.Dropdown(
             label="Группа",
-            width=300
+            options=[],  # Изначально пустой список
+            on_change=lambda e: self.page.update(),  # Обновляем страницу при изменении
+            width=None,  # Адаптивная ширина
+            expand=True,  # Растягиваем на всю ширину
+            value=None,
+            text_size=16
         )
         self.select_button = ft.ElevatedButton(
             text="Выбрать",
-            on_click=self.on_group_select
+            on_click=self.on_group_select,
+            style=ft.ButtonStyle(
+                shape=ft.RoundedRectangleBorder(radius=10),
+                padding=20
+            ),
+            width=200,
+            height=50
         )
-        # Инициализируем group_dropdown для первого курса, если он есть
-        if self.manager.data.get_courses():
-            self.update_groups(None)
         logging.info("GroupSelectionUI initialized")
 
-    def update_groups(self, e):
-        """Обновляем выпадающий список групп на основе выбранного курса"""
-        courses = self.manager.data.get_courses()
-        if not courses:
-            logging.warning("No courses available")
-            self.group_dropdown.options = []
+    async def update_groups(self, e):
+        """Обновляет список групп при выборе курса"""
+        if self.course_dropdown.value:
+            groups = self.manager.data.get_groups_for_course(self.course_dropdown.value)
+            self.group_dropdown.options = [ft.dropdown.Option(group["name"]) for group in groups]
             self.group_dropdown.value = None
             self.page.update()
-            return
-        selected_course = self.course_dropdown.value or courses[0]
-        groups = self.manager.data.get_groups_for_course(selected_course)
-        self.group_dropdown.options = [ft.dropdown.Option(group["name"]) for group in groups]
-        self.group_dropdown.value = groups[0]["name"] if groups else None
-        self.page.update()
-        logging.info(f"Updated groups for course {selected_course}: {[g['name'] for g in groups]}")
+            logging.info(f"Updated groups for course {self.course_dropdown.value}: {len(groups)} groups found")
 
     async def on_group_select(self, e):
         """Обработчик выбора группы"""
-        def notify_callback(message):
+        async def notify_callback(message):
             self.page.snack_bar = ft.SnackBar(ft.Text(message), duration=3000)
             self.page.snack_bar.open = True
             self.page.update()
+
+        if not self.course_dropdown.value or not self.group_dropdown.value:
+            await notify_callback("Выберите курс и группу!")
+            return
 
         logging.info(f"Selecting group: course={self.course_dropdown.value}, group_name={self.group_dropdown.value}")
         await self.manager.select_group(
@@ -61,13 +69,30 @@ class GroupSelectionUI:
 
     def build(self):
         """Создаём интерфейс выбора группы"""
-        return ft.Column(
-            [
-                ft.Text("Выберите курс и группу", size=20, weight="bold"),
-                self.course_dropdown,
-                self.group_dropdown,
-                self.select_button
-            ],
-            alignment=ft.MainAxisAlignment.CENTER,
-            horizontal_alignment=ft.CrossAxisAlignment.CENTER
+        return ft.Container(
+            content=ft.Column(
+                [
+                    ft.Text("Выберите курс и группу", size=24, weight="bold", text_align=ft.TextAlign.CENTER),
+                    ft.Container(height=20),  # Отступ
+                    ft.Container(
+                        content=self.course_dropdown,
+                        padding=ft.padding.symmetric(horizontal=20)
+                    ),
+                    ft.Container(height=20),  # Отступ
+                    ft.Container(
+                        content=self.group_dropdown,
+                        padding=ft.padding.symmetric(horizontal=20)
+                    ),
+                    ft.Container(height=40),  # Отступ
+                    ft.Container(
+                        content=self.select_button,
+                        alignment=ft.alignment.center
+                    )
+                ],
+                alignment=ft.MainAxisAlignment.CENTER,
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                spacing=0
+            ),
+            expand=True,
+            padding=20
         )

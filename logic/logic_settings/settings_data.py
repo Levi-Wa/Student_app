@@ -7,9 +7,10 @@ from plyer import storagepath
 class SettingsData:
     def __init__(self):
         if system() == "Android":
-            self.settings_file = Path(storagepath.get_files_dir()) / "settings.json"
+            base_dir = Path(storagepath.get_files_dir())
+            self.settings_file = base_dir / "data" / "settings.json"
         else:
-            self.settings_file = Path(__file__).parent.parent / "data" / "settings.json"
+            self.settings_file = Path(__file__).parent.parent.parent / "data" / "settings.json"
 
     def load_settings(self, app):
         """Загрузка настроек из файла"""

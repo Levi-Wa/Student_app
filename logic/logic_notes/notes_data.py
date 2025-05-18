@@ -9,9 +9,9 @@ from plyer import storagepath
 class NotesData:
     def __init__(self):
         if system() == "Android":
-            self.notes_file = Path(storagepath.get_files_dir()) / "data" / "notes.json"
+            self.notes_file = Path(storagepath.get_files_dir()) / "notes.json"
         else:
-            self.notes_file = Path(__file__).parent.parent / "data" / "notes.json"
+            self.notes_file = Path(__file__).parent.parent.parent / "data" / "notes.json"
         self.notes = []
         try:
             self.notes_file.parent.mkdir(parents=True, exist_ok=True)

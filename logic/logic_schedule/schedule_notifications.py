@@ -6,7 +6,7 @@ class ScheduleNotifications:
     def __init__(self):
         self.app = None  # Placeholder for app settings
 
-    def notify(self, title: str, message: str, notify_callback):
+    async def notify(self, title: str, message: str, notify_callback):
         try:
             from plyer import storage
             storage.request_permissions(["android.permission.POST_NOTIFICATIONS"])
@@ -68,4 +68,4 @@ class ScheduleNotifications:
                     changes.append(f"{new_lesson['Dis']} ({new_lesson['datePair']}): {', '.join(change_details)}")
 
         if changes:
-            self.notify("Изменения в расписании", "; ".join(changes), notify_callback)
+            await self.notify("Изменения в расписании", "; ".join(changes), notify_callback)

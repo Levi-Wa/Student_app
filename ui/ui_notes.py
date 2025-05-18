@@ -24,19 +24,25 @@ class NotesUI:
         """Создаёт форму для добавления заметки."""
         disciplines = self.schedule_manager.utils.get_unique_disciplines(self.schedule_manager.data.schedules)
         logging.info(f"Disciplines in build_note_form: {disciplines}")
+        
+        # Сохраняем текущее значение, если оно есть
+        current_value = self.discipline_dropdown.value if self.discipline_dropdown else None
+        
         if not disciplines:
             logging.warning("No disciplines available")
-            discipline_options = [ft.dropdown.Option("Нет дисциплин")]
-            discipline_value = "Нет дисциплин"
+            discipline_options = []
+            discipline_value = None
         else:
             discipline_options = [ft.dropdown.Option(d) for d in disciplines]
-            discipline_value = disciplines[0] if disciplines else None
+            # Если текущее значение есть в списке дисциплин, оставляем его
+            discipline_value = current_value if current_value in disciplines else disciplines[0] if disciplines else None
 
         self.discipline_dropdown = ft.Dropdown(
             label="Дисциплина",
             options=discipline_options,
             value=discipline_value,
             width=300,
+            hint_text="Выберите дисциплину",
             on_change=lambda e: self.page.update()
         )
         self.mode_dropdown = ft.Dropdown(
@@ -236,3 +242,7 @@ class NotesUI:
             )
         self.page.update()
         logging.info(f"Notes list updated, total notes: {len(self.manager.notes)}")
+
+    def build(self):
+        """Возвращает основной контейнер с заметками"""
+        return self.ui_content

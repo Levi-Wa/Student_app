@@ -8,6 +8,7 @@ class GroupSelectionManager:
         self.utils = GroupSelectionUtils()
         self.schedule_manager = schedule_manager
         self.app = app
+        self.ui = None  # Ссылка на UI компонент
         logging.info("GroupSelectionManager initialized")
 
     async def select_group(self, course: str, group_name: str, display_callback, notify_callback, on_selection_complete):

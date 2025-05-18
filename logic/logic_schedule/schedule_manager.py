@@ -34,7 +34,8 @@ class ScheduleManager:
                 await self.fetch_and_update_schedule(display_callback)
             else:
                 logging.info("Schedule is up-to-date, using cached data")
-                await display_callback()
+                if display_callback:
+                    await display_callback()
 
     async def load_schedule_for_group(self, group_id: str, display_callback, notify_callback):
         self.group_id = group_id

@@ -14,7 +14,7 @@ class SettingsManager:
         self.data.load_settings(app)
         logging.info("SettingsManager initialized")
 
-    def change_group(self, notify_callback):
+    async def change_group(self, notify_callback):
         """Очищает данные и переключает на выбор группы"""
         try:
             self.utils.clear_schedules()
@@ -23,7 +23,7 @@ class SettingsManager:
             self.schedule_manager.data.schedules = []
             self.schedule_manager.group_id = None
             self.notes_manager.notes = []
-            self.notes_manager.data.save_notes(self.notes_manager.notes)
+            await self.notes_manager.data.save_notes(self.notes_manager.notes)
             logging.info("Group changed, data cleared")
             return True
         except Exception as e:
@@ -51,18 +51,18 @@ class SettingsManager:
             current_theme = self.app.settings.get("theme", "light")
             new_theme = "dark" if current_theme == "light" else "light"
             self.app.settings["theme"] = new_theme
-            page.theme_mode = ft.ThemeMode.DARK if new_theme == "dark" else ft.ThemeMode.LIGHT
             self.data.save_settings(self.app)
+            page.theme_mode = ft.ThemeMode.DARK if new_theme == "dark" else ft.ThemeMode.LIGHT
             page.update()
             logging.info(f"Theme switched to {new_theme}")
         except Exception as e:
             logging.error(f"Error toggling theme: {e}")
 
-    def update_expiry_days(self, days: str, notify_callback):
+    async def update_expiry_days(self, days: str, notify_callback):
         """Обновление количества дней для уведомления"""
         try:
             self.app.settings["expiry_days"] = int(days)
-            self.data.save_settings(self.app)
+            await self.data.save_settings(self.app)
             logging.info(f"Expiry days updated to {days}")
         except ValueError:
-            notify_callback("Ошибка: выберите значение")
+            await notify_callback("Ошибка: выберите значение")

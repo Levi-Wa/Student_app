@@ -4,14 +4,13 @@ import logging
 from typing import List, Dict
 
 BELL_SCHEDULE = {
-    "08:30": ["–9:15", "9:20–10:05"],
-    "10:15": ["10:15–11:00", "11:05–11:50"],
-    "12:00": ["12:00–12:45", "12:50–13:35"],
-    "14:05": ["14:05–14:50", "14:55–15:40"],
-    "15:50": ["15:50–16:35", "16:40–17:25"],
-    "17:35": ["17:35–18:20", "18:25–19:10"],
-    "19:15": ["19:15–20:00", "20:05–20:50"],
-    "20:55": ["20:55–21:40", "21:45–22:30"]
+    "08:30": ["09:15", "10:00"],
+    "10:15": ["11:00", "11:45"],
+    "12:00": ["12:45", "13:30"],
+    "13:45": ["14:30", "15:15"],
+    "15:30": ["16:15", "17:00"],
+    "17:15": ["18:00", "18:45"],
+    "19:00": ["19:45", "20:30"]
 }
 
 class ScheduleUtils:
@@ -70,5 +69,13 @@ class ScheduleUtils:
                         continue
         return next_lesson_date if next_lesson_date else (current_date + datetime.timedelta(days=7))
 
-    def get_date_color(self, day_date: datetime.date, current_date: datetime.date, tomorrow_date: datetime.date) -> str:
-        return "blue" if day_date == tomorrow_date else "red" if day_date == current_date else "black"
+    @staticmethod
+    def get_date_color(day_date: datetime.date, current_date: datetime.date, tomorrow_date: datetime.date) -> str:
+        """Возвращает цвет для даты в зависимости от её отношения к текущей дате"""
+        if day_date < current_date:
+            return "grey"
+        elif day_date == current_date:
+            return "green"
+        elif day_date == tomorrow_date:
+            return "blue"
+        return "grey200"

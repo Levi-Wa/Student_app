@@ -16,7 +16,7 @@ class ScheduleUI:
         )
 
     def on_scroll(self, e: ft.ScrollEvent):
-        logging.info(f"Scroll event: delta={e.delta_y}, position={self.schedule_output.scroll_offset}")
+        logging.info(f"Scroll event: position={self.schedule_output.scroll_offset}")
 
     def create_lessons(self, main_schedule: List[Dict], day_date: datetime.date, highlight_current_pair: bool = False):
         lessons = ft.Column()
@@ -174,19 +174,26 @@ class ScheduleUI:
                                             content=ft.CircleAvatar(bgcolor=color, radius=10),
                                             alignment=ft.alignment.top_left
                                         ),
-                                        ft.Text(f"{time_display}", weight="bold", size=16),
+                                        ft.Text(
+                                            f"{time_display}",
+                                            weight="bold",
+                                            size=16,
+                                            color=ft.colors.ON_SURFACE_VARIANT
+                                        ),
                                         ft.Text(
                                             f"{lesson.get('SubjName', '') or lesson.get('Dis', '')} ({lesson.get('LoadKindSN', '') or lesson.get('Type', '')})",
-                                            size=14),
-                                        ft.Text(f"Ауд: {lesson.get('Aud', '') or lesson.get('Room', '')}", size=12),
-                                        ft.Text(f"Преп: {lesson.get('FIO', '') or lesson.get('Teacher', '')}", size=12)
+                                            size=14,
+                                            color=ft.colors.ON_SURFACE
+                                        ),
+                                        ft.Text(f"Ауд: {lesson.get('Aud', '') or lesson.get('Room', '')}", size=12, color=ft.colors.ON_SURFACE_VARIANT),
+                                        ft.Text(f"Преп: {lesson.get('FIO', '') or lesson.get('Teacher', '')}", size=12, color=ft.colors.ON_SURFACE_VARIANT)
                                     ], spacing=5),
                                     padding=15,
                                     margin=10
                                 ),
                                 elevation=2,
                                 shape=ft.RoundedRectangleBorder(radius=10),
-                                color="white",
+                                color=ft.colors.SURFACE,
                                 key=f"lesson_{date_pair}_{time_start}"
                             )
                             cards.append(lesson_card)
@@ -205,7 +212,7 @@ class ScheduleUI:
                                             f"{date_pair} ({day.get('dayWeek', '')})",
                                             weight="bold",
                                             size=16,
-                                            color=ft.colors.BLACK87
+                                            color=ft.colors.ON_SURFACE
                                         ),
                                         ft.Container(
                                             content=ft.CircleAvatar(bgcolor=indicator_color, radius=10),
@@ -213,22 +220,37 @@ class ScheduleUI:
                                             margin=ft.margin.only(right=10)
                                         )
                                     ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
-                                    ft.Divider(),
+                                    ft.Divider(color=ft.colors.ON_SURFACE_VARIANT),
                                     ft.Column([
                                         ft.ListTile(
                                             leading=ft.CircleAvatar(
                                                 content=ft.Text(
-                                                    lesson.get("TimeStart", "")[:5] or lesson.get("timeStart", "")[:5]),
-                                                bgcolor=ft.colors.BLUE_100,
+                                                    lesson.get("TimeStart", "")[:5] or lesson.get("timeStart", "")[:5],
+                                                    color=ft.colors.ON_PRIMARY_CONTAINER,
+                                                    size=14
+                                                ),
+                                                bgcolor=ft.colors.PRIMARY_CONTAINER,
                                                 radius=25
                                             ),
-                                            title=ft.Text(lesson.get("SubjName", "") or lesson.get("Dis", ""),
-                                                          weight="bold"),
+                                            title=ft.Text(
+                                                lesson.get("SubjName", "") or lesson.get("Dis", ""),
+                                                weight="bold",
+                                                color=ft.colors.ON_SURFACE,
+                                                size=16
+                                            ),
                                             subtitle=ft.Column([
                                                 ft.Text(
-                                                    f"Тип: {lesson.get('LoadKindSN', '') or lesson.get('Type', '')}"),
-                                                ft.Text(f"Ауд: {lesson.get('Aud', '') or lesson.get('Room', '')}"),
-                                                ft.Text(f"Преп: {lesson.get('FIO', '') or lesson.get('Teacher', '')}")
+                                                    f"Тип: {lesson.get('LoadKindSN', '') or lesson.get('Type', '')}",
+                                                    color=ft.colors.ON_SURFACE_VARIANT
+                                                ),
+                                                ft.Text(
+                                                    f"Ауд: {lesson.get('Aud', '') or lesson.get('Room', '')}",
+                                                    color=ft.colors.ON_SURFACE_VARIANT
+                                                ),
+                                                ft.Text(
+                                                    f"Преп: {lesson.get('FIO', '') or lesson.get('Teacher', '')}",
+                                                    color=ft.colors.ON_SURFACE_VARIANT
+                                                )
                                             ])
                                         )
                                         for lesson in day.get("mainSchedule", [])
@@ -239,7 +261,7 @@ class ScheduleUI:
                             ),
                             elevation=4,
                             shape=ft.RoundedRectangleBorder(radius=12),
-                            color=ft.colors.WHITE,
+                            color=ft.colors.SURFACE,
                             key=f"day_{date_pair}"
                         )
                         cards.append(day_card)

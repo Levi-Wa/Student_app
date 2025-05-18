@@ -9,10 +9,12 @@ class ScheduleData:
     def __init__(self):
         if system() == "Android":
             base_dir = Path(storagepath.get_files_dir())
+            self.schedules_file = base_dir / "schedules.json"
+            self.previous_schedules_file = base_dir / "previous_schedules.json"
         else:
-            base_dir = Path(__file__).parent.parent
-        self.schedules_file = base_dir / "data" / "schedules.json"
-        self.previous_schedules_file = base_dir / "data" / "previous_schedules.json"
+            base_dir = Path(__file__).parent.parent.parent
+            self.schedules_file = base_dir / "data" / "schedules.json"
+            self.previous_schedules_file = base_dir / "data" / "previous_schedules.json"
         self.schedules = []
         self.group_id = None
         self.last_schedule_update = None

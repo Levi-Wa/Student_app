@@ -99,7 +99,10 @@ class SettingsUI:
         theme_switch = ft.Switch(
             label="Темная тема",
             value=self.manager.app.settings.get("theme", "light") == "dark",
-            on_change=lambda e: self.manager.toggle_theme(self.page)
+            on_change=lambda e: (
+                self.manager.toggle_theme(self.page),
+                setattr(theme_switch, 'value', self.manager.app.settings.get("theme", "light") == "dark")
+            )
         )
 
         return ft.Container(
@@ -110,7 +113,7 @@ class SettingsUI:
                 ft.Card(
                     content=ft.Container(
                         content=ft.Column([
-                            ft.Text("Уведомления", weight="bold", size=16),
+                            ft.Text("Уведомления", weight="bold", size=16, color=ft.colors.ON_SURFACE),
                             schedule_notifications_switch,
                             expiry_days_dropdown
                         ], spacing=10),
@@ -122,7 +125,7 @@ class SettingsUI:
                 ft.Card(
                     content=ft.Container(
                         content=ft.Column([
-                            ft.Text("Тема", weight="bold", size=16),
+                            ft.Text("Тема", weight="bold", size=16, color=ft.colors.ON_SURFACE),
                             theme_switch
                         ], spacing=10),
                         padding=10
@@ -133,7 +136,7 @@ class SettingsUI:
                 ft.Card(
                     content=ft.Container(
                         content=ft.Column([
-                            ft.Text("Действия", weight="bold", size=16),
+                            ft.Text("Действия", weight="bold", size=16, color=ft.colors.ON_SURFACE),
                             change_group_button,
                             report_issue_button
                         ], spacing=10),
