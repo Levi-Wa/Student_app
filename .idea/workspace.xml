@@ -4,12 +4,16 @@
     <option name="autoReloadType" value="NONE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="832981c1-d509-4487-a2be-a0358c132f17" name="Changes" comment="Beta 0.59">
+    <list default="true" id="832981c1-d509-4487-a2be-a0358c132f17" name="Changes" comment="Beta 0.6">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/logic/logic_notes/notes_data.py" beforeDir="false" afterPath="$PROJECT_DIR$/logic/logic_notes/notes_data.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/logic/logic_notes/notes_manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/logic/logic_notes/notes_manager.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/logic/logic_schedule/schedule_data.py" beforeDir="false" afterPath="$PROJECT_DIR$/logic/logic_schedule/schedule_data.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/logic/logic_schedule/schedule_manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/logic/logic_schedule/schedule_manager.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/logic/logic_selector_group/group_selection_manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/logic/logic_selector_group/group_selection_manager.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/logic/logic_settings/settings_data.py" beforeDir="false" afterPath="$PROJECT_DIR$/logic/logic_settings/settings_data.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/logic/logic_settings/settings_manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/logic/logic_settings/settings_manager.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ui/ui_schedule.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/ui_schedule.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/ui/ui_settings.py" beforeDir="false" afterPath="$PROJECT_DIR$/ui/ui_settings.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -50,37 +54,38 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "Python.DEF_ИЗИ.executor": "Run",
-    "Python.main.executor": "Run",
-    "Python.notes_view.executor": "Run",
-    "Python.schedule_data.executor": "Run",
-    "Python.schedule_view.executor": "Run",
-    "Python.ui_schedule.executor": "Run",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.cidr.known.project.marker": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "RunOnceActivity.readMode.enableVisualFormatting": "true",
-    "cf.first.check.clang-format": "false",
-    "cidr.known.project.marker": "true",
-    "git-widget-placeholder": "main",
-    "ignore.virus.scanning.warn.message": "true",
-    "kotlin-language-version-configured": "true",
-    "last_opened_file_path": "C:/Users/Levi_/PycharmProjects/Student_app",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "project.structure.last.edited": "Modules",
-    "project.structure.proportion": "0.0",
-    "project.structure.side.proportion": "0.0",
-    "settings.editor.selected.configurable": "preferences.pluginManager",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;Python.DEF_ИЗИ.executor&quot;: &quot;Run&quot;,
+    &quot;Python.main.executor&quot;: &quot;Run&quot;,
+    &quot;Python.notes_view.executor&quot;: &quot;Run&quot;,
+    &quot;Python.schedule_data.executor&quot;: &quot;Run&quot;,
+    &quot;Python.schedule_manager.executor&quot;: &quot;Run&quot;,
+    &quot;Python.schedule_view.executor&quot;: &quot;Run&quot;,
+    &quot;Python.ui_schedule.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.cidr.known.project.marker&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.readMode.enableVisualFormatting&quot;: &quot;true&quot;,
+    &quot;cf.first.check.clang-format&quot;: &quot;false&quot;,
+    &quot;cidr.known.project.marker&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
+    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/Levi_/PycharmProjects/Student_app&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;project.structure.last.edited&quot;: &quot;Modules&quot;,
+    &quot;project.structure.proportion&quot;: &quot;0.0&quot;,
+    &quot;project.structure.side.proportion&quot;: &quot;0.0&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.general&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
       <recent name="C:\Users\Levi_\PycharmProjects\Student_app" />
@@ -151,7 +156,15 @@
       <workItem from="1746886241875" duration="7874000" />
       <workItem from="1746937270845" duration="6864000" />
       <workItem from="1747047315170" duration="686000" />
-      <workItem from="1747051873280" duration="2224000" />
+      <workItem from="1747051873280" duration="2953000" />
+      <workItem from="1747062227460" duration="1326000" />
+      <workItem from="1747109713228" duration="600000" />
+      <workItem from="1747214447310" duration="8786000" />
+      <workItem from="1747312486155" duration="65000" />
+      <workItem from="1747452192995" duration="11000" />
+      <workItem from="1747452586655" duration="139000" />
+      <workItem from="1747516002490" duration="3000" />
+      <workItem from="1747577347426" duration="504000" />
     </task>
     <task id="LOCAL-00001" summary="0.26">
       <option name="closed" value="true" />
@@ -409,7 +422,15 @@
       <option name="project" value="LOCAL" />
       <updated>1746944925648</updated>
     </task>
-    <option name="localTasksCounter" value="33" />
+    <task id="LOCAL-00033" summary="Beta 0.6">
+      <option name="closed" value="true" />
+      <created>1747054253600</created>
+      <option name="number" value="00033" />
+      <option name="presentableId" value="LOCAL-00033" />
+      <option name="project" value="LOCAL" />
+      <updated>1747054253600</updated>
+    </task>
+    <option name="localTasksCounter" value="34" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -427,7 +448,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="0.29" />
     <MESSAGE value="0.31" />
     <MESSAGE value="0.32" />
     <MESSAGE value="0.33" />
@@ -452,17 +472,19 @@
     <MESSAGE value="Alpha 0.57" />
     <MESSAGE value="Beta 0.58" />
     <MESSAGE value="Beta 0.59" />
-    <option name="LAST_COMMIT_MESSAGE" value="Beta 0.59" />
+    <MESSAGE value="Beta 0.6" />
+    <option name="LAST_COMMIT_MESSAGE" value="Beta 0.6" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/student_app$main.coverage" NAME="main Coverage Results" MODIFIED="1745144007183" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/Student_app$notes_view.coverage" NAME="notes_view Coverage Results" MODIFIED="1745336652020" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/views" />
     <SUITE FILE_PATH="coverage/Student_app$schedule_data.coverage" NAME="schedule_data Coverage Results" MODIFIED="1746890913738" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/logic/logic_schedule" />
     <SUITE FILE_PATH="coverage/Student_app$schedule_view.coverage" NAME="schedule_view Coverage Results" MODIFIED="1745428071455" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/views" />
+    <SUITE FILE_PATH="coverage/Student_app$schedule_manager.coverage" NAME="schedule_manager Coverage Results" MODIFIED="1747224152346" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/logic/logic_schedule" />
     <SUITE FILE_PATH="coverage/Student_app$DEF_.coverage" NAME="DEF_ИЗИ Coverage Results" MODIFIED="1745769855426" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/Student_app$ui_schedule.coverage" NAME="ui_schedule Coverage Results" MODIFIED="1747052349079" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/ui" />
     <SUITE FILE_PATH="coverage/student_app$schedule_view.coverage" NAME="schedule_view Coverage Results" MODIFIED="1745136828156" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/views" />
-    <SUITE FILE_PATH="coverage/Student_app$main.coverage" NAME="main Coverage Results" MODIFIED="1747053275837" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Student_app$main.coverage" NAME="main Coverage Results" MODIFIED="1747577352512" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/Student_app_0_30$main.coverage" NAME="main Coverage Results" MODIFIED="1745296480009" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
 </project>

@@ -7,7 +7,7 @@ class SettingsUI:
         self.page = page
         self.manager = manager
 
-    def change_group(self, e):
+    async def change_group(self, e):
         """Показывает диалог подтверждения перед сменой группы"""
         def confirm_change(e):
             def notify_callback(message):
@@ -15,17 +15,23 @@ class SettingsUI:
                 self.page.snack_bar.open = True
                 self.page.update()
 
-            if self.manager.change_group(notify_callback):
-                self.page.views.clear()
-                self.page.views.append(
-                    ft.View(
-                        "/group_selection",
-                        [self.manager.group_selection_manager.build()]
+            try:
+                if self.manager.change_group(notify_callback):
+                    self.page.views.clear()
+                    self.page.views.append(
+                        ft.View(
+                            "/group_selection",
+                            [self.manager.group_selection_manager.ui.build()]  # Используем существующий UI
+                        )
                     )
-                )
-                self.page.dialog.open = False
-                self.page.update()
-                logging.info("Group selection view displayed")
+                    self.page.dialog.open = False
+                    self.page.update()
+                    logging.info("Group selection view displayed")
+                else:
+                    notify_callback("Не удалось сменить группу")
+            except Exception as ex:
+                logging.error(f"Error changing group: {ex}")
+                notify_callback(f"Ошибка при смене группы: {str(ex)}")
 
         def cancel_change(e):
             self.page.dialog.open = False

@@ -1,7 +1,7 @@
 import flet as ft
 import logging
-from .settings_data import SettingsData
-from .settings_utils import SettingsUtils
+from logic.logic_settings.settings_data import SettingsData
+from logic.logic_settings.settings_utils import SettingsUtils
 
 class SettingsManager:
     def __init__(self, app, schedule_manager, group_selection_manager, notes_manager):

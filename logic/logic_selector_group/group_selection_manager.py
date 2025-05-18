@@ -1,6 +1,6 @@
 import logging
-from .group_selection_data import GroupSelectionData
-from .group_selection_utils import GroupSelectionUtils
+from logic.logic_selector_group.group_selection_data import GroupSelectionData
+from logic.logic_selector_group.group_selection_utils import GroupSelectionUtils
 
 class GroupSelectionManager:
     def __init__(self, schedule_manager, app):

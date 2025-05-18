@@ -1,8 +1,8 @@
 import logging
 from typing import List, Dict
-from .notes_data import NotesData
-from .notes_validation import NotesValidation
-from .notes_utils import NotesUtils
+from logic.logic_notes.notes_data import NotesData
+from logic.logic_notes.notes_validation import NotesValidation
+from logic.logic_notes.notes_utils import NotesUtils
 
 class NotesManager:
     def __init__(self, schedule_manager, app):
