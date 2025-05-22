@@ -1,0 +1,29 @@
+[project]
+name = "Student"
+version = "0.6.3"
+description = "Студенческое приложение"
+authors = [{ name = "Levi" }]
+requires-python = ">=3.8"
+dependencies = [
+    "beautifulsoup4==4.12.3",
+    "flet==0.28.3",
+    "plyer==2.1.0",
+    "pytz==2024.1",
+    "requests==2.31.0",
+    "aiohttp==3.9.5"
+]
+
+[tool.flet]
+app-name = "Student App"
+app-short-name = "student_app"
+app-version = "0.6.3"
+app-id = "com.levi.student_app"
+app-icon = "assets/icon.png"
+app-entrypoint = "main.py"
+
+[build-system]
+requires = ["setuptools>=42"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["logic", "ui"]
